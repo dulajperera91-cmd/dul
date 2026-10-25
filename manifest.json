@@ -1,6 +1,7 @@
 {
- "name": "Sports Corner Price Check",
- "short_name": "Price Check",
+ "name": "Dul",
+ "short_name": "Dul",
+ "description": "Sports Corner price check (Was / Now / Ramada OH)",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
