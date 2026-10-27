@@ -708,9 +708,29 @@ async function poll(){
 })();
 </script>
 
-<button id="instBtn" hidden style="position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;background:#16202a;color:#fff;border:0;border-radius:999px;padding:12px 22px;font:600 16px 'IBM Plex Sans',Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer">⬇ Install app</button>
-<script>let instEv=null;addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e;document.getElementById('instBtn').hidden=false;});
-document.getElementById('instBtn').onclick=async()=>{if(!instEv)return;instEv.prompt();try{await instEv.userChoice;}catch(e){}instEv=null;document.getElementById('instBtn').hidden=true;};
-addEventListener('appinstalled',()=>{document.getElementById('instBtn').hidden=true;});</script><script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+<style>
+#instBtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;background:#16202a;color:#fff;border:0;border-radius:999px;padding:12px 22px;font:600 16px 'IBM Plex Sans',Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer}
+@media (min-width:900px){#instBtn{left:auto;right:24px;transform:none;bottom:24px}}
+@media (display-mode:standalone){#instBtn{display:none!important}}
+#instHelp{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;display:flex;align-items:flex-end;justify-content:center}
+#instHelp[hidden]{display:none}
+#instHelp .box{background:#fff;color:#16202a;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));font:16px/1.5 'IBM Plex Sans',Arial,sans-serif}
+@media (min-width:900px){#instHelp{align-items:center}#instHelp .box{border-radius:16px}}
+#instHelp h3{margin:0 0 10px;font-size:20px}#instHelp ol{margin:0 0 14px;padding-left:22px}#instHelp li{margin:6px 0}
+#instHelp button{width:100%;padding:12px;border-radius:10px;border:0;background:#16202a;color:#fff;font:600 16px inherit;cursor:pointer}
+</style>
+<button id="instBtn">⬇ Install app</button>
+<div id="instHelp" hidden><div class="box"><h3>Install Dul-Shift Board</h3><ol id="instSteps"></ol><button id="instOk">OK</button></div></div>
+<script>(function(){let ev=null;const B=document.getElementById('instBtn'),H=document.getElementById('instHelp');
+if(matchMedia('(display-mode: standalone)').matches||navigator.standalone)B.hidden=true;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();ev=e;});
+addEventListener('appinstalled',()=>{B.hidden=true;H.hidden=true;});
+B.onclick=async()=>{if(ev){ev.prompt();try{const c=await ev.userChoice;if(c&&c.outcome==='accepted')B.hidden=true;}catch(e){}ev=null;return;}
+  const ua=navigator.userAgent,ios=/iPhone|iPad|iPod/.test(ua),android=/Android/.test(ua);
+  document.getElementById('instSteps').innerHTML=ios?'<li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (square with an arrow ↑).</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>'
+   :android?'<li>Tap the <b>⋮</b> menu at the top right of Chrome.</li><li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li><li>Tap <b>Install</b> / <b>Add</b>. The <b>Dul SHIFT</b> icon appears on your home screen.</li>'
+   :'<li>Click the <b>install icon</b> at the right end of Chrome’s address bar (a small screen with an arrow), <b>or</b></li><li>Click <b>⋮ → Cast, save and share → Install page as app</b>.</li><li>Click <b>Install</b>.</li>';
+  H.hidden=false;};
+document.getElementById('instOk').onclick=()=>{H.hidden=true;};H.onclick=e=>{if(e.target===H)H.hidden=true;};})();</script><script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
 </body>
 </html>

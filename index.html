@@ -466,8 +466,13 @@ async function upload(){
 /* ---------- installable app ---------- */
 if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
 let instEv=null;
-addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e;$('install').style.display='';});
-$('install').onclick=async()=>{if(!instEv)return;instEv.prompt();try{await instEv.userChoice;}catch(e){}instEv=null;$('install').style.display='none';};
+if(!(matchMedia('(display-mode: standalone)').matches||navigator.standalone))$('install').style.display='';
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e;});
+$('install').onclick=async()=>{if(instEv){instEv.prompt();try{const c=await instEv.userChoice;if(c&&c.outcome==='accepted')$('install').style.display='none';}catch(e){}instEv=null;return;}
+  const ua=navigator.userAgent,ios=/iPhone|iPad|iPod/.test(ua),android=/Android/.test(ua);
+  openSheet(`<h3>Install Dul-Price change</h3><ol style="padding-left:22px;line-height:1.6">${ios?'<li>Open this page in <b>Safari</b>.</li><li>Tap <b>Share ↑</b>.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>'
+   :android?'<li>Tap the <b>⋮</b> menu at the top right of Chrome.</li><li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li><li>Tap <b>Install</b> / <b>Add</b>.</li>'
+   :'<li>Click the <b>install icon</b> at the right end of Chrome’s address bar, <b>or</b></li><li><b>⋮ → Cast, save and share → Install page as app</b>.</li><li>Click <b>Install</b>.</li>'}</ol><button class="btn" data-close>OK</button>`);};
 addEventListener('appinstalled',()=>{$('install').style.display='none';});
 </script>
 </body>
