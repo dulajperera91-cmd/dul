@@ -1,0 +1,1026 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#111111">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dul-KPI Dashboard">
+<script src="config.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dul-KPI Dashboard</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: black brand bar with logo + month switcher; dashboard of hero progress, KPI tiles, daily chart and 10-day blocks; separate PIN-locked data entry area. */
+:root{
+  --bg:#f1f2f4; --surface:#ffffff; --surface-2:#e9ebee; --line:#dadde2; --ink:#111214; --muted:#5d636c; --brand:#111214; --brand-ink:#ffffff;
+  --good:#12784f; --good-bg:#e1f3ea; --bad:#be3a2e; --bad-bg:#fbe7e4; --warn:#a96a0a; --warn-bg:#fbf0dc; --ly:#9aa1aa; --track:#e3e6ea; --markf:none;
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0d0e10; --surface:#16181b; --surface-2:#1e2125; --line:#2b2f35; --ink:#eef0f2; --muted:#9aa2ab; --brand:#000000; --brand-ink:#ffffff;
+  --good:#4cc38a; --good-bg:#12301f; --bad:#f07a6e; --bad-bg:#3a1714; --warn:#e5a64b; --warn-bg:#36260c; --ly:#6c747e; --track:#262a30; --markf:invert(1); color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+
+/* header */
+header.top{background:var(--brand);color:var(--brand-ink);position:sticky;top:0;z-index:10;padding-top:env(safe-area-inset-top,0px)}
+header.top .wrap{display:flex;align-items:center;gap:12px 18px;flex-wrap:wrap;padding-block:10px}
+.logo{height:34px;width:auto;filter:invert(1);display:block}
+.ttl{display:flex;flex-direction:column;line-height:1.1;margin-right:auto;min-width:0}
+.ttl small{font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.7}
+.ttl b{font-family:var(--f-display);font-size:22px;font-weight:600;letter-spacing:.02em}
+.monthnav{display:flex;align-items:center;gap:6px}
+.monthnav button,.monthnav select{background:#222428;border:1px solid #33363b;color:#fff;border-radius:8px;padding:7px 10px}
+.monthnav select{min-width:150px}
+.tabs{display:flex;gap:4px;background:#1e2024;border-radius:10px;padding:3px}
+.tabs button{border:0;background:none;color:#c9cdd2;border-radius:8px;padding:7px 12px;font-weight:500}
+.tabs button[aria-selected="true"]{background:#fff;color:#111}
+.status{font-size:12px;color:var(--muted);padding-block:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--good);display:inline-block}
+.status.err .dot{background:var(--bad)}
+
+/* cards */
+section.block{margin-top:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.h h2{margin:0;font-family:var(--f-display);font-size:20px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
+.h span{color:var(--muted);font-size:12px}
+.h .right{margin-left:auto}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 14px;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{opacity:.9}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px}
+.big{font-size:56px;font-weight:700;line-height:.95}
+.big small{font-family:var(--f-body);font-size:14px;font-weight:500;color:var(--muted);margin-left:6px;letter-spacing:0}
+.sub{color:var(--muted);font-size:13px}
+.bar{position:relative;height:16px;background:var(--track);border-radius:999px;margin:16px 0 8px;overflow:visible}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--ink);border-radius:999px}
+.bar .pace{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--warn)}
+.bar .pace::after{content:attr(data-l);position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--warn);white-space:nowrap;font-weight:600}
+.barlbl{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px}
+.barlbl b{font-family:var(--f-display);font-size:18px}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stat{background:var(--surface-2);border-radius:10px;padding:10px 12px;min-width:0}
+.stat label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stat .v{font-size:26px;font-weight:600;line-height:1.1}
+.stat .n{font-size:12px;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.neutral{background:var(--surface-2);color:var(--muted)}
+
+/* KPI tiles */
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0;position:relative;overflow:hidden}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line)}
+.tile.good::before{background:var(--good)}.tile.bad::before{background:var(--bad)}.tile.warn::before{background:var(--warn)}
+.tile label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;gap:6px}
+.tile .v{font-size:36px;font-weight:700;line-height:1}
+.tile .row{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.tile .row b{color:var(--ink);font-weight:600}
+
+/* latest day + blocks */
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.daygrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.blocks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.blk{background:var(--surface-2);border-radius:10px;padding:10px 12px;min-width:0}
+.blk .t{font-weight:600;font-size:13px}
+.blk .mini{height:8px;background:var(--track);border-radius:99px;margin:8px 0 6px;overflow:hidden}
+.blk .mini i{display:block;height:100%;background:var(--ink)}
+
+/* chart */
+.chart{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+
+/* tables */
+.tbox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+table.t{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}
+.t th,.t td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.t th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--surface);position:sticky;top:0}
+.t td:first-child,.t th:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1}
+.t tr.tot td{font-weight:700;background:var(--surface-2)}
+.t tr.tot td:first-child{background:var(--surface-2)}
+.t tr.future td{color:var(--muted)}
+.t tr.today td{background:var(--warn-bg)}
+.t tr.today td:first-child{background:var(--warn-bg)}
+.t .g{color:var(--good);font-weight:600}.t .r{color:var(--bad);font-weight:600}
+.t td.rm{text-align:left;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.ib{display:inline-block;height:6px;background:var(--ink);border-radius:9px;vertical-align:middle;margin-left:6px}
+.ib.ly{background:var(--ly)}
+
+/* entry */
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.subtabs button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font-weight:500}
+.subtabs button[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f label{font-size:12px;color:var(--muted);font-weight:600}
+.f input,.f select,.f textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;width:100%;font-size:16px}
+.f input.big{font-family:var(--f-display);font-size:26px;font-weight:600;padding:8px 12px}
+.f.wide{grid-column:span 2}
+.f.full{grid-column:1/-1}
+.preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.preview .stat{flex:1 1 120px}
+details.ly{margin-top:14px;border:1px dashed var(--line);border-radius:12px;padding:10px 14px}
+details.ly summary{cursor:pointer;font-weight:600}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.msg{font-size:13px;font-weight:500}
+.msg.ok{color:var(--good)}.msg.err{color:var(--bad)}
+.grid input{width:92px;border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 6px;text-align:right;font-size:13px}
+.grid input.rmk{width:150px;text-align:left}
+.grid input:focus{border-color:var(--ink);background:var(--surface)}
+.grid input.dirty{background:var(--warn-bg)}
+.grid th.lyh{color:var(--ly)}
+.note{font-size:12px;color:var(--muted)}
+.lock{max-width:420px;margin:30px auto;text-align:center}
+.lock .f{text-align:left;margin-top:14px}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+
+/* vs last year */
+.vsly{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr);gap:12px;align-items:stretch}
+.vsly .stat .v{font-size:30px}
+.vsly .res{border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.vsly .res.good{background:var(--good-bg);color:var(--good)}.vsly .res.bad{background:var(--bad-bg);color:var(--bad)}
+.vsly .res label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.vsly .res .v{font-size:34px;font-weight:700;line-height:1.05}
+.vsly .res .p{font-size:15px;font-weight:600}
+.cmp{margin-top:12px;display:grid;gap:6px}
+.cmp .r{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
+.cmp .track{height:12px;background:var(--track);border-radius:99px;overflow:hidden}
+.cmp .track i{display:block;height:100%;border-radius:99px}
+@media (max-width:640px){.vsly{grid-template-columns:1fr 1fr}.vsly .res{grid-column:1/-1}.cmp .r{grid-template-columns:80px 1fr}}
+
+/* toast + paste box */
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:40;background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,.25);max-width:calc(100vw - 32px)}
+#toast .btn{background:var(--bg);color:var(--ink);border-color:var(--bg);padding:6px 12px}
+@media (max-width:640px){#toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
+.pastebox textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.grid input::placeholder{color:var(--ly)}
+
+/* staff */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 14px;font-weight:500}
+.seg button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.rank{display:grid;gap:6px}
+.rank .r{display:grid;grid-template-columns:minmax(90px,170px) 1fr 64px;gap:10px;align-items:center;font-size:13px}
+.rank .r span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank .track{height:12px;background:var(--track);border-radius:99px;position:relative;overflow:hidden}
+.rank .track i{position:absolute;inset:0 auto 0 0;border-radius:99px;background:var(--ink)}
+.rank .track i.good{background:var(--good)}.rank .track i.bad{background:var(--bad)}.rank .track i.warn{background:var(--warn)}
+.rank .track b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--warn)}
+.rank .p{text-align:right;font-family:var(--f-display);font-size:16px;font-weight:600}
+.t td.l{text-align:left}
+.t input.cb{width:18px;height:18px}
+.recon{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;margin-top:10px}
+.grid input.w{width:150px;text-align:left}
+.grid input.s{width:60px}
+.t td .x{border:0;background:none;color:var(--bad);font-size:16px;padding:2px 6px}
+.ytdchart .m{font-size:10px}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:520px;max-height:88vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px))}
+@media (min-width:640px){.scrim{align-items:center}.sheet{border-radius:16px}}
+.sheet h3{margin:0 0 6px;font-family:var(--f-display);font-size:24px}
+.sheet textarea{width:100%;min-height:330px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:14px;font-family:ui-monospace,Menlo,Consolas,monospace}
+
+.bottombar{display:none}
+@media (max-width:980px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.hero,.two{grid-template-columns:1fr}.form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){
+  .tabs{display:none}
+  .logo{height:26px}
+  .ttl b{font-size:18px}
+  .monthnav{width:100%}.monthnav select{flex:1}
+  .big{font-size:44px}
+  .tile .v{font-size:30px}
+  .tile label span{display:none}
+  .tile{padding:12px}
+  .seg button{padding:7px 10px}
+  .rank .r{grid-template-columns:minmax(80px,120px) 1fr 52px}
+  .daygrid,.blocks{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  body{padding-bottom:calc(74px + env(safe-area-inset-bottom,0px))}
+  .bottombar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));gap:4px}
+  .bottombar button{border:0;background:none;border-radius:10px;min-height:54px;font-weight:600;font-size:11px;padding:0 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted)}
+  .bottombar svg{width:22px;height:22px}
+  .bottombar button[aria-selected="true"]{background:var(--surface-2);color:var(--ink)}
+}
+@media (prefers-reduced-motion:no-preference){.bar i,.blk .mini i{transition:width .5s ease}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <img class="logo" alt="Sports Corner" src="data:image/png;base64,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">
+  <div class="ttl"><small id="storeName">FO Ramada</small><b>Store Dashboard</b></div>
+  <div class="tabs" role="tablist" id="tabs">
+    <button data-tab="dash" aria-selected="true">Dashboard</button>
+    <button data-tab="daily" aria-selected="false">Daily</button>
+    <button data-tab="staff" aria-selected="false">Staff</button>
+    <button data-tab="year" aria-selected="false">YTD LFL</button>
+    <button data-tab="entry" aria-selected="false">Data entry</button>
+  </div>
+  <div class="monthnav">
+    <button id="prevM" aria-label="Previous month">‹</button>
+    <select id="monthSel" aria-label="Month"></select>
+    <button id="nextM" aria-label="Next month">›</button>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <div class="status" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+  <div id="app"><div class="card empty">Loading the dashboard…</div></div>
+</main>
+
+<nav class="bottombar" id="bbar">
+  <button data-tab="dash" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
+  <button data-tab="daily" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Daily</button>
+  <button data-tab="staff" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9" r="2.4"/><path d="M16 14.2c3 .2 5 2.6 5 5.8"/></svg>Staff</button>
+  <button data-tab="year" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>YTD LFL</button>
+  <button data-tab="entry" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>Data entry</button>
+</nav>
+
+<div class="scrim" id="scrim" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+
+<script>
+/* ================= data access (Google Apps Script) ================= */
+const API=window.KPI_API||'';
+async function gas(fn,...args){
+  if(!API)throw {code:'offline',message:'not connected'};
+  let r;try{r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args}),redirect:'follow'});}
+  catch(e){throw {code:'offline',message:'No internet connection'};}
+  let j;try{j=await r.json();}catch(e){throw {code:'error',message:'The server did not answer correctly'};}
+  if(j.err)throw {code:/PIN/i.test(j.err)?'pin':'error',message:j.err};
+  return j.ok;}
+
+const S={smDirty:new Map(),docs:{},rev:-1,pin:'',canWrite:false,tab:'dash',sub:'day',ym:null,year:null,dirty:new Map(),busy:false};
+const $=id=>document.getElementById(id);
+function store(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+function recall(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function setStatus(t,err){$('statusText').textContent=t;$('status').classList.toggle('err',!!err);}
+
+/* ================= formatting ================= */
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const n0=v=>v==null||!isFinite(v)?'–':Math.round(v).toLocaleString('en-US');
+const n2=v=>v==null||!isFinite(v)?'–':(+v).toFixed(2);
+const pct=(v,d=1)=>v==null||!isFinite(v)?'–':(v*100).toFixed(d)+'%';
+const sgn=(v,d=1)=>v==null||!isFinite(v)?'–':(v>=0?'+':'')+(v*100).toFixed(d)+'%';
+const fmtK={sales:n0,atv:n0,upt:n2,asp:n0,cr:v=>pct(v,1),traffic:n0,inv:n0,qty:n0};
+function pill(v,{good=0,label}={}){if(v==null||!isFinite(v))return '<span class="pill neutral">–</span>';const c=v>=good?'good':'bad';return `<span class="pill ${c}">${label??sgn(v)}</span>`;}
+function todayIso(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
+function dObj(iso){return new Date(iso+'T12:00:00');}
+function niceDate(iso){const d=dObj(iso);return `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;}
+function ymLabel(ym){const [y,m]=ym.split('-');return MONF[+m-1]+' '+y;}
+function daysIn(ym){const [y,m]=ym.split('-').map(Number);const n=new Date(y,m,0).getDate();return Array.from({length:n},(_,i)=>`${ym}-${String(i+1).padStart(2,'0')}`);}
+function shiftYm(ym,k){let [y,m]=ym.split('-').map(Number);m+=k;while(m<1){m+=12;y--;}while(m>12){m-=12;y++;}return `${y}-${String(m).padStart(2,'0')}`;}
+
+/* ================= calculations ================= */
+const isNum=v=>typeof v==='number'&&isFinite(v);
+const entered=d=>d&&isNum(d.sales);
+function tot(list,pick=d=>d){const t={sales:0,qty:0,inv:0,traffic:0,target:0};list.forEach(x=>{const d=pick(x)||{};for(const k in t)if(isNum(d[k]))t[k]+=d[k];});return t;}
+function ratios(t){return{atv:t.inv?t.sales/t.inv:null,upt:t.inv?t.qty/t.inv:null,asp:t.qty?t.sales/t.qty:null,cr:t.traffic?t.inv/t.traffic:null};}
+const lfl=(a,b)=>isNum(a)&&isNum(b)&&b?(a-b)/b:null;
+function settings(ym){
+  if(S.docs['m:'+ym]) return {...DEFAULTS,...S.docs['m:'+ym]};
+  const prev=Object.keys(S.docs).filter(k=>k.startsWith('m:')&&k.slice(2)<ym).sort().pop();
+  return {...DEFAULTS,...(prev?S.docs[prev]:{}),target:undefined};
+}
+const DEFAULTS={atv:300,upt:3,asp:155,cr:0.25,store:'FO Ramada'};
+function month(ym){
+  const days=daysIn(ym).map(date=>({date,...(S.docs['d:'+date]||{})}));
+  const done=days.filter(entered);
+  const set=settings(ym);
+  let monthTarget=tot(days).target; if(!monthTarget&&isNum(set.target)) monthTarget=set.target;
+  const tdTarget=tot(done).target;
+  const ty=tot(done), lyM=tot(done,lyOf), lyAll=tot(days,lyOf);
+  const r=ratios(ty), rl=ratios(lyM);
+  const nod=days.length, left=nod-done.length;
+  const remaining=Math.max(monthTarget-ty.sales,0);
+  const blocks=[[0,10],[10,20],[20,nod]].map(([a,b],i)=>{const sl=days.slice(a,b),dn=sl.filter(entered);const tg=tot(sl).target,sa=tot(dn).sales;return{name:['1st','2nd','3rd'][i]+' 10 days',from:sl[0].date,to:sl[sl.length-1].date,target:tg,sales:sa,tdTarget:tot(dn).target,done:dn.length,count:sl.length};});
+  return{ym,days,done,set,monthTarget,tdTarget,ty,lyM,lyAll,r,rl,nod,left,remaining,
+    ach:monthTarget?ty.sales/monthTarget:null, achTD:tdTarget?ty.sales/tdTarget:null,
+    avgDay:done.length?ty.sales/done.length:null, reqDay:left?remaining/left:null,
+    forecast:tdTarget?ty.sales/tdTarget*monthTarget:null, last:done[done.length-1]||null, blocks};
+}
+function monthTotalsFor(ym){ // for year view: daily data if any, else saved monthly totals
+  const days=daysIn(ym).map(date=>S.docs['d:'+date]?{date,...S.docs['d:'+date]}:null).filter(Boolean);
+  const done=days.filter(entered);
+  if(done.length){const ly=tot(done,lyOf);return {ty:tot(done),ly:ly.sales?ly:null,src:'daily',days:done.length,of:daysIn(ym).length};}
+  const [y,m]=ym.split('-');const h=S.docs['h:'+ym], lyYm=(y-1)+'-'+m, hl=S.docs['h:'+lyYm];
+  let ly=hl?tot([hl]):null;
+  if(!ly){const ld=daysIn(lyYm).map(x=>S.docs['d:'+x]).filter(entered);if(ld.length)ly=tot(ld);}
+  return {ty:h?tot([h]):null,ly,src:'totals'};
+}
+
+/* ================= rendering ================= */
+function allMonths(){
+  const set=new Set();Object.keys(S.docs).forEach(k=>{if(k.startsWith('d:'))set.add(k.slice(2,9));if(k.startsWith('m:'))set.add(k.slice(2));});
+  const cur=todayIso().slice(0,7);set.add(cur);set.add(shiftYm(cur,1));set.add(shiftYm(cur,2));return [...set].sort();
+}
+function chrome(){
+  const ms=allMonths(); if(!S.ym||!ms.includes(S.ym)) S.ym=ms.includes(todayIso().slice(0,7))?todayIso().slice(0,7):ms[ms.length-1];
+  $('monthSel').innerHTML=ms.slice().reverse().map(m=>`<option value="${m}">${ymLabel(m)}</option>`).join('');
+  $('monthSel').value=S.ym;
+  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
+  $('storeName').textContent=settings(S.ym).store||'Store';
+  const showM=S.tab!=='year'; document.querySelector('.monthnav').style.visibility=showM?'visible':'hidden';
+}
+function render(){chrome();const a=$('app');
+  if(S.tab==='dash') a.innerHTML=dashView(); else if(S.tab==='daily') a.innerHTML=dailyView(); else if(S.tab==='staff') a.innerHTML=staffView(); else if(S.tab==='year') a.innerHTML=yearView(); else a.innerHTML=entryView();
+  if(S.tab==='entry'){bindEntry();bindEntry2();}
+}
+
+function vsLyCard(ty,ly,title,sub,tyLbl,lyLbl){
+  if(!isNum(ly)||!ly) return '';
+  const diff=ty-ly, p=diff/ly, good=diff>=0, mx=Math.max(ty,ly)||1;
+  return `<section class="block card"><div class="h"><h2>${title}</h2><span>${sub}</span></div><div class="vsly">
+    <div class="stat"><label>${tyLbl}</label><div class="v num">${n0(ty)}</div><div class="n">SAR</div></div>
+    <div class="stat"><label>${lyLbl}</label><div class="v num">${n0(ly)}</div><div class="n">SAR</div></div>
+    <div class="res ${good?'good':'bad'}"><label>${good?'Growth vs last year':'Short vs last year'}</label><div class="v num">${good?'+':'−'}${n0(Math.abs(diff))}</div><div class="p">${good?'+':'−'}${(Math.abs(p)*100).toFixed(1)}% ${good?'ahead of':'behind'} last year</div></div></div>
+    <div class="cmp"><div class="r"><span>${tyLbl}</span><div class="track"><i style="width:${ty/mx*100}%;background:var(--ink)"></i></div></div><div class="r"><span>${lyLbl}</span><div class="track"><i style="width:${ly/mx*100}%;background:var(--ly)"></i></div></div></div></section>`;
+}
+function kpiTile(key,label,val,target,lyVal,opt={}){
+  const f=fmtK[key]; const vsT=isNum(target)&&isNum(val)&&target?val/target:null; const lf=lfl(val,lyVal);
+  const cls=vsT!=null?(vsT>=1?'good':vsT>=0.9?'warn':'bad'):(lf!=null?(lf>=0?'good':'bad'):'');
+  return `<div class="tile ${cls}"><label>${label}${opt.hint?`<span>${opt.hint}</span>`:''}</label><div class="v num">${f(val)}</div>
+    ${isNum(target)?`<div class="row"><span>Target <b>${f(target)}</b></span><span class="pill ${vsT>=1?'good':vsT>=0.9?'warn':'bad'}">${pct(vsT,0)}</span></div>`:''}
+    <div class="row"><span>LY <b>${f(lyVal)}</b></span>${pill(lf,{label:'LFL '+sgn(lf)})}</div></div>`;
+}
+function dashView(){
+  const M=month(S.ym); const t=todayIso();
+  if(!M.days.some(d=>isNum(d.target)||entered(d))) return `<div class="card empty"><b>No data for ${ymLabel(S.ym)} yet.</b><br>Add targets and sales in <b>Data entry</b>.</div>`;
+  const paceShare=M.monthTarget?M.tdTarget/M.monthTarget:0, achW=Math.min((M.ach||0)*100,100);
+  const reqBad=M.reqDay!=null&&M.avgDay!=null&&M.reqDay>M.avgDay;
+  const salesLfl=lfl(M.ty.sales,M.lyM.sales);
+  let h=`<section class="block hero">
+   <div class="card"><div class="h"><h2>${ymLabel(S.ym)}</h2><span>${M.done.length} of ${M.nod} days entered${M.last?' · up to '+niceDate(M.last.date):''}</span><button class="btn right" data-act="wa">Copy WhatsApp report</button><button class="btn" data-act="xl">⬇ Excel</button></div>
+    <div class="big num">${n0(M.ty.sales)}<small>SAR month to date</small></div>
+    <div class="sub">vs target to date <b>${n0(M.tdTarget)}</b> → ${pill(M.achTD!=null?M.achTD-1:null,{label:pct(M.achTD,1)})} &nbsp; LFL ${pill(salesLfl)}</div>
+    <div class="bar" title="Achieved ${pct(M.ach)} of month target"><i style="width:${achW}%"></i>${paceShare?`<span class="pace" style="left:${Math.min(paceShare*100,100)}%" data-l="where we should be"></span>`:''}</div>
+    <div class="barlbl"><span>Achieved <b class="num">${pct(M.ach)}</b></span><span>To go <b class="num">${n0(M.remaining)}</b></span><span>Month target <b class="num">${n0(M.monthTarget)}</b></span></div>
+   </div>
+   <div class="card stats">
+    <div class="stat"><label>Average per day</label><div class="v num">${n0(M.avgDay)}</div><div class="n">so far this month</div></div>
+    <div class="stat"><label>Needed per day</label><div class="v num" style="color:${reqBad?'var(--bad)':'var(--good)'}">${n0(M.reqDay)}</div><div class="n">${M.left} days left</div></div>
+    <div class="stat"><label>Forecast</label><div class="v num">${n0(M.forecast)}</div><div class="n">at current pace · ${pct(M.forecast/M.monthTarget,0)} of target</div></div>
+    <div class="stat"><label>LY same days</label><div class="v num">${n0(M.lyM.sales)}</div><div class="n">LY full month ${n0(M.lyAll.sales)}</div></div>
+   </div></section>`;
+  if(M.last) h+=vsLyCard(M.ty.sales,M.lyM.sales,'This year vs last year · to date',`1–${dObj(M.last.date).getDate()} ${MON[dObj(M.last.date).getMonth()]} ${S.ym.slice(0,4)} vs the same dates ${+S.ym.slice(0,4)-1}`,'This year to date','Last year to date');
+  h+=`<section class="block"><div class="h"><h2>Month to date KPIs</h2><span>Coloured edge: green on target, amber within 10%, red below</span></div><div class="tiles">
+    ${kpiTile('sales','Sales',M.ty.sales,M.tdTarget,M.lyM.sales,{hint:'SAR'})}
+    ${kpiTile('cr','Conversion (CR)',M.r.cr,M.set.cr,M.rl.cr,{hint:'inv ÷ footfall'})}
+    ${kpiTile('atv','ATV',M.r.atv,M.set.atv,M.rl.atv,{hint:'sales ÷ inv'})}
+    ${kpiTile('asp','ASP',M.r.asp,M.set.asp,M.rl.asp,{hint:'sales ÷ qty'})}
+    ${kpiTile('upt','UPT',M.r.upt,M.set.upt,M.rl.upt,{hint:'qty ÷ inv'})}
+    ${kpiTile('traffic','Footfall',M.ty.traffic,null,M.lyM.traffic)}
+    ${kpiTile('inv','Invoices',M.ty.inv,null,M.lyM.inv)}
+    ${kpiTile('qty','Units sold',M.ty.qty,null,M.lyM.qty)}
+  </div></section>`;
+  const L=M.last;
+  h+=`<section class="block two"><div class="card"><div class="h"><h2>Latest day</h2><span>${L?niceDate(L.date):'No sales entered yet'}</span></div>`;
+  if(L){const Lly=lyOf(L);const r=ratios(tot([L])),rl=Lly?ratios(tot([Lly])):{};const lyS=Lly&&Lly.sales;
+    h+=`<div class="daygrid">
+      <div class="stat"><label>Sales</label><div class="v num">${n0(L.sales)}</div><div class="n">target ${n0(L.target)} · ${pct(L.target?L.sales/L.target:null,0)}</div></div>
+      <div class="stat"><label>LY same day</label><div class="v num">${n0(lyS)}</div><div class="n">Day LFL ${pill(lfl(L.sales,lyS))}</div></div>
+      <div class="stat"><label>CR</label><div class="v num">${pct(r.cr)}</div><div class="n">LY ${pct(rl.cr)}</div></div>
+      <div class="stat"><label>ATV</label><div class="v num">${n0(r.atv)}</div><div class="n">LY ${n0(rl.atv)}</div></div>
+      <div class="stat"><label>ASP</label><div class="v num">${n0(r.asp)}</div><div class="n">LY ${n0(rl.asp)}</div></div>
+      <div class="stat"><label>UPT</label><div class="v num">${n2(r.upt)}</div><div class="n">LY ${n2(rl.upt)}</div></div></div>
+      ${L.remark?`<p class="note">Note: ${esc(L.remark)}</p>`:''}`;}
+  h+=`</div><div class="card"><div class="h"><h2>10-day targets</h2></div><div class="blocks">`+M.blocks.map(b=>{const a=b.target?b.sales/b.target:0;
+      return `<div class="blk"><div class="t">${b.name}</div><div class="n note">${dObj(b.from).getDate()}–${dObj(b.to).getDate()} ${MON[dObj(b.from).getMonth()]}</div><div class="mini"><i style="width:${Math.min(a*100,100)}%"></i></div>
+       <div class="num" style="font-size:22px;font-weight:600">${pct(a,0)}</div><div class="note">${n0(b.sales)} / ${n0(b.target)}</div></div>`;}).join('')+`</div></div></section>`;
+  h+=`<section class="block card"><div class="h"><h2>Daily sales</h2><span>This year vs last year and target</span></div>${chart(M)}
+    <div class="legend"><span><i style="background:var(--ink)"></i>Sales this year</span><span><i style="background:var(--ly)"></i>Last year same day</span><span><i style="background:transparent;border:2px dashed var(--warn)"></i>Daily target</span></div></section>`;
+  return h;
+}
+function chart(M){
+  const W=760,H=250,pl=46,pr=8,pt=10,pb=26; const n=M.days.length, bw=(W-pl-pr)/n;
+  const mx=Math.max(1,...M.days.map(d=>Math.max(d.sales||0,d.target||0,(lyOf(d)&&lyOf(d).sales)||0)));
+  const step=Math.pow(10,Math.floor(Math.log10(mx)));let tick=step;while(mx/tick>5)tick*=2;const top=Math.ceil(mx/tick)*tick;
+  const y=v=>pt+(H-pt-pb)*(1-v/top); let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily sales chart">`;
+  for(let v=0;v<=top;v+=tick){s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="var(--muted)">${v>=1000?(v/1000)+'k':v}</text>`;}
+  const today=todayIso();
+  M.days.forEach((d,i)=>{const x=pl+i*bw;
+    if(entered(d))s+=`<rect x="${x+bw*0.18}" y="${y(d.sales)}" width="${bw*0.64}" height="${H-pb-y(d.sales)}" rx="2" fill="var(--ink)"><title>${niceDate(d.date)}: ${n0(d.sales)} SAR</title></rect>`;
+    if(isNum(d.target))s+=`<line x1="${x+bw*0.08}" x2="${x+bw*0.92}" y1="${y(d.target)}" y2="${y(d.target)}" stroke="var(--warn)" stroke-width="2" stroke-dasharray="3 2"/>`;
+    const dd=dObj(d.date).getDate(); if(dd===1||dd%5===0||d.date===today) s+=`<text x="${x+bw/2}" y="${H-8}" text-anchor="middle" font-size="10" fill="${d.date===today?'var(--ink)':'var(--muted)'}" ${d.date===today?'font-weight="700"':''}>${dd}</text>`;});
+  const pts=M.days.map((d,i)=>{const l=lyOf(d);return l&&isNum(l.sales)?`${pl+i*bw+bw/2},${y(l.sales)}`:null;});
+  let path='';pts.forEach(p=>{if(p)path+=(path?' L':'M')+p;});
+  if(path) s+=`<path d="${path}" fill="none" stroke="var(--ly)" stroke-width="2"/>`+pts.filter(Boolean).map(p=>{const [a,b]=p.split(',');return `<circle cx="${a}" cy="${b}" r="2.4" fill="var(--ly)"/>`}).join('');
+  return s+'</svg>';
+}
+function dailyView(){
+  const M=month(S.ym); const t=todayIso();
+  let h=`<section class="block"><div class="h"><h2>${ymLabel(S.ym)} · day by day</h2><span>LFL compares with the same date last year</span></div><div class="tbox"><table class="t"><thead><tr>
+    <th>Date</th><th>Target</th><th>Sales</th><th>Ach %</th><th>Variance</th><th>LY sales</th><th>LFL</th><th>Footfall</th><th>Invoices</th><th>Qty</th><th>CR</th><th>ATV</th><th>ASP</th><th>UPT</th><th>Remark</th></tr></thead><tbody>`;
+  const T=M.ty, R=M.r;
+  h+=`<tr class="tot"><td>Month to date</td><td>${n0(M.tdTarget)}</td><td>${n0(T.sales)}</td><td>${pct(M.achTD,0)}</td><td class="${T.sales-M.tdTarget>=0?'g':'r'}">${n0(T.sales-M.tdTarget)}</td><td>${n0(M.lyM.sales)}</td><td class="${lfl(T.sales,M.lyM.sales)>=0?'g':'r'}">${sgn(lfl(T.sales,M.lyM.sales))}</td><td>${n0(T.traffic)}</td><td>${n0(T.inv)}</td><td>${n0(T.qty)}</td><td>${pct(R.cr)}</td><td>${n0(R.atv)}</td><td>${n0(R.asp)}</td><td>${n2(R.upt)}</td><td></td></tr>`;
+  M.days.forEach(d=>{const e=entered(d);const r=e?ratios(tot([d])):{};const lyS=(lyOf(d)||{}).sales;const lf=e?lfl(d.sales,lyS):null;const v=e&&isNum(d.target)?d.sales-d.target:null;
+    h+=`<tr class="${e?'':'future'} ${d.date===t?'today':''}"><td>${niceDate(d.date)}</td><td>${n0(d.target)}</td><td>${e?n0(d.sales):''}</td><td>${e&&d.target?pct(d.sales/d.target,0):''}</td><td class="${v==null?'':v>=0?'g':'r'}">${v==null?'':n0(v)}</td>
+      <td>${n0(lyS)}</td><td class="${lf==null?'':lf>=0?'g':'r'}">${lf==null?'':sgn(lf)}</td><td>${e?n0(d.traffic):''}</td><td>${e?n0(d.inv):''}</td><td>${e?n0(d.qty):''}</td><td>${e?pct(r.cr):''}</td><td>${e?n0(r.atv):''}</td><td>${e?n0(r.asp):''}</td><td>${e?n2(r.upt):''}</td><td class="rm" title="${esc(d.remark)}">${esc(d.remark)}</td></tr>`;});
+  return h+`</tbody></table></div></section>`;
+}
+function yearViewOld(){
+  const years=new Set();Object.keys(S.docs).forEach(k=>{if(/^[dh]:/.test(k))years.add(+k.slice(2,6));});years.add(+todayIso().slice(0,4));
+  const ys=[...years].sort(); if(!S.year||!ys.includes(S.year)) S.year=+todayIso().slice(0,4);
+  const rows=[];let TY={sales:0,qty:0,inv:0,traffic:0},LY={sales:0,qty:0,inv:0,traffic:0};let mx=1;
+  for(let m=1;m<=12;m++){const ym=`${S.year}-${String(m).padStart(2,'0')}`;const r=monthTotalsFor(ym);rows.push({ym,...r});
+    if(r.ty&&r.ly){for(const k in TY){TY[k]+=r.ty[k];LY[k]+=r.ly[k];}} mx=Math.max(mx,r.ty?r.ty.sales:0,r.ly?r.ly.sales:0);}
+  const cell=(a,b,f)=>{const l=lfl(a,b);return `<td>${f(a)}</td><td>${f(b)}</td><td class="${l==null?'':l>=0?'g':'r'}">${sgn(l)}</td>`;};
+  let h=`<section class="block"><div class="h"><h2>Year to date LFL</h2><span>${S.year} vs ${S.year-1} · YTD counts only months that have both years</span>
+    <select class="right btn" id="yearSel">${ys.slice().reverse().map(y=>`<option ${y===S.year?'selected':''}>${y}</option>`).join('')}</select></div>`;
+  const rT=ratios(TY),rL=ratios(LY);
+  h+=`<div class="tiles" style="margin-bottom:14px">${kpiTile('sales','YTD sales',TY.sales,null,LY.sales,{hint:'SAR'})}${kpiTile('cr','YTD CR',rT.cr,null,rL.cr)}${kpiTile('atv','YTD ATV',rT.atv,null,rL.atv)}${kpiTile('asp','YTD ASP',rT.asp,null,rL.asp)}</div>`;
+  h+=`<div class="tbox"><table class="t"><thead><tr><th>Month</th><th>Sales ${S.year}</th><th>Sales ${S.year-1}</th><th>LFL</th><th>Footfall</th><th>LY</th><th>LFL</th><th>Invoices</th><th>LY</th><th>LFL</th><th>CR</th><th>LY</th><th>LFL</th><th>ATV</th><th>LY</th><th>LFL</th><th>ASP</th><th>LY</th><th>LFL</th><th>UPT</th><th>LY</th><th>LFL</th></tr></thead><tbody>`;
+  const row=(label,ty,ly,extra)=>{if(!ty&&!ly)return `<tr class="future"><td>${label}</td>${'<td></td>'.repeat(21)}</tr>`;ty=ty||{};ly=ly||{};const a=ratios(ty),b=ratios(ly);
+    return `<tr class="${extra||''}"><td>${label}</td><td>${n0(ty.sales)}<span class="ib" style="width:${(ty.sales||0)/mx*60}px"></span></td><td>${n0(ly.sales)}<span class="ib ly" style="width:${(ly.sales||0)/mx*60}px"></span></td><td class="${lfl(ty.sales,ly.sales)>=0?'g':'r'}">${sgn(lfl(ty.sales,ly.sales))}</td>
+      ${cell(ty.traffic,ly.traffic,n0)}${cell(ty.inv,ly.inv,n0)}${cell(a.cr,b.cr,v=>pct(v))}${cell(a.atv,b.atv,n0)}${cell(a.asp,b.asp,n0)}${cell(a.upt,b.upt,n2)}</tr>`;};
+  rows.forEach(r=>{const lbl=MONF[+r.ym.slice(5)-1]+(r.src==='daily'?` <span class="note">(${r.days} days)</span>`:'');h+=row(lbl,r.ty,r.ly);});
+  h+=row('YTD (matched months)',TY,LY,'tot');
+  return h+`</tbody></table></div><p class="note">Months with daily data use the days entered so far and the same dates last year. Other months use the monthly totals saved under Data entry → Past months.</p></section>`;
+}
+
+/* ================= data entry ================= */
+const FIELDS=[['target','Target'],['sales','Sales'],['traffic','Footfall'],['inv','Invoices'],['qty','Qty'],['remark','Remark'],['ly.sales','LY sales'],['ly.traffic','LY footfall'],['ly.inv','LY invoices'],['ly.qty','LY qty']];
+function entryView(){
+  if(!S.canWrite) return `<div class="card lock"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFUAAAB5CAYAAABIm20XAAAFGUlEQVR42u3dT2gcVRzA8e/WCRhbMLG95JA1aE7xYk7NyUovoV6EeqioYBShKgUjCFZJrRZpqwStIFpBtIr/AiIKohVEUxCsF9tLc9qI2KKXBlpMMbiHevi9pdtxspmZfTPz3pvfD3IITHZnP3nz/v7e28bw8DAadmOTEiiqoirqtVgE/gE+AyaUKHs0Ehqqq7HfF4BDwJJy2Xv89wDntOQWU6cqboENVQf3BDCuhHZb/4dNPau4lrtUA4pbXD+1G/c40FRUezEA7AVadcYtakRVa9yih6nduMeAEUW1i/sU8FsdcMueULmxDrhVzVLFcbcpqn3c34GjoeC6Mp+6GXg2FFzXJqnjuEOKWgzui77hppmkdiEumwbtGHBJUYvBnQdW9fG3EzcDB021sB/Yoqj2YitwxFVc35eoncQNZd2/G3e2atzQkim2Aq9XjRtqhkqluKGn/XRwl4DHFdVujAJvA3+UgVu3BLVScOua9dfBbQEzimo3bgfet42bhHpece2j/qAllxZwv03Ul4E1rRb4NC9uEmoLeBBoo9HBPQPs6reh+gK4C1hWVwDuBL5BUven+mn9T5sXexpYUVcAdgA/I4nP6y5ONlJuTtsCPAbMmaGfhvSSdprqMlc/dRVZxhjTknvdAOIkCZM1NwwODmZ5oX9NtfAW8DcwCdwUIFgb+BNZvukVtxiHn2yMqFaRdfkx4LmASm4b+ADZKNIEHkkxGNqTt05NU+fuA57xtM5tm6fvNWSyJf7ZPgem1/nbK/EqwNbYv7vkvoQsJfuC+Q6yV2E2AbTz2U72eI3NRZXUeAyZm5xNUS9VhfmJGT22Nri2aerM0R7XNIooqfG4hKTruFhyF0z/eyYF6Azw6waglFVSXSy5X5l/8JkU1+4GDhj8VI5VoHZim2nM9iXVRQXFd+apOZ3i2l1IBsz2jO9RKWqZuKeQBIsiMZ1CLRL3F4O5mOLau02vZXuf71lKQ5U2LhqAMeAN+pvHPQvcg8wiLabAXAR+tABK3rF/GbizwG05cJeB+8yQ+dsMmDuK+jANR49QGkE2tT2ETBQnjWK+Bz5E5n43iinTWE0X5egDahz4VmAYOdvlQor+ZVmYiaiRB0PJv8xPlphEsgCnq7jh0Nb9J4EvzShouqqbiALCPAjc68LN+I46ARx2BdP3x38CWXw75xqojyV1AniBhNl2Rc0e48hK7gPI2QEoak0wXUdtIucLeoXpKmoTeB541EdM11CDwHQFdQTZgv5kCJhVo3Yw9yJHfgQVkWL6i1rFgl+wqLXCLBp1CFl7qhVmUahDuJ3u4xWqYlpE7aRQ7q8x5ootVN/zUW3G1/2iKub1sQa8mhdVd6f8P9rIJr6lrKiKmRxngSdYJ/mtF+oU8BHJGSJ1jWUk+/pEntZ/N7KwNqCO6TF7oY4DHytodsxeqHMEPIOUMs4j+QTHbXX+dypmPsxeqKOK6cbY3+ch5pwtzLqjrpgG6F0KONw2Ukz7ESmmoubBnAfepMQzrCPFVFSnMUNDvYzs3KsUMxRUJ79UIVJMRfXi6z58Qb1i6sujePDdKZEnmPPIpmAvIlLM8FHXkK3pXmK6hrqGnA/1Ctk39ypqyJhVowaJWRVqG3gPOR8qOMyyUTuYh0k+T09RFbMa1FpiFoWa5bRHRVXM8lAV0zLqApKIoJix2JQT8w7kO0UUtM+SuoAcbLCkbP2jKqaFx/+UGZt3P+YKmiF8OECxFg2VhqIqahDxHyU8OXzPfjeNAAAAAElFTkSuQmCC" alt="" style="height:44px;filter:var(--markf)"><h2 style="font-family:var(--f-display);margin:10px 0 4px">Data entry</h2><p class="note">Only the store manager can add or change data. Everyone else sees the dashboard.</p>
+    <div class="f"><label for="pinIn">PIN</label><input id="pinIn" type="password" inputmode="numeric" autocomplete="current-password"></div><div class="actions" style="justify-content:center"><button class="btn primary" id="pinGo">Unlock</button></div><div id="pinMsg" class="msg err"></div></div>`;
+  const tabs=[['day','Daily sales'],['grid','Month sheet'],['kpi','Store targets'],['staffT','Staff targets'],['staffS','Staff sales (day)'],['staffM','Staff month sheet'],['hist','YTD past data'],['undo','Undo & history']];
+  let h=`<section class="block"><div class="h"><h2>Data entry</h2><span>Changes appear on the dashboard for everyone after you save</span><button class="btn right" id="logout">Lock</button></div>
+    <div class="subtabs">${tabs.map(([k,l])=>`<button data-sub="${k}" aria-selected="${S.sub===k}">${l}</button>`).join('')}</div>`;
+  if(S.sub==='day') h+=dayForm(); else if(S.sub==='grid') h+=gridForm(); else if(S.sub==='kpi') h+=kpiForm(); else if(S.sub==='staffT') h+=staffTForm(); else if(S.sub==='staffS') h+=staffSForm(); else if(S.sub==='staffM') h+=staffMForm(); else if(S.sub==='undo') h+=historyForm(); else h+=histForm();
+  return h+'</section>';
+}
+function nextEmptyDay(){const t=todayIso();const days=daysIn(S.ym);const d=days.find(x=>x<=t&&!entered(S.docs['d:'+x]));return d||days.filter(x=>x<=t).pop()||days[0];}
+function dayForm(){
+  if(!S.entryDate||S.entryDate.slice(0,7)!==S.ym) S.entryDate=nextEmptyDay();
+  const d=S.docs['d:'+S.entryDate]||{}; const ly=d.ly||{}; const v=x=>x==null?'':x; const auto=lyOf({date:S.entryDate,...d});
+  return `<div class="card"><div class="form">
+    <div class="f"><label for="eDate">Date</label><input id="eDate" type="date" value="${S.entryDate}"></div>
+    <div class="f"><label for="eTarget">Day target (SAR)</label><input id="eTarget" inputmode="decimal" value="${v(d.target)}"></div>
+    <div class="f wide"><label for="eRemark">Remark (offer, event…)</label><input id="eRemark" value="${esc(d.remark||'')}" placeholder="e.g. MID SEASON OFFER"></div>
+    <div class="f"><label for="eSales">Sales (SAR)</label><input class="big" id="eSales" inputmode="decimal" value="${v(d.sales)}" placeholder="0"></div>
+    <div class="f"><label for="eTraffic">Footfall</label><input class="big" id="eTraffic" inputmode="numeric" value="${v(d.traffic)}" placeholder="0"></div>
+    <div class="f"><label for="eInv">Invoices</label><input class="big" id="eInv" inputmode="numeric" value="${v(d.inv)}" placeholder="0"></div>
+    <div class="f"><label for="eQty">Qty sold</label><input class="big" id="eQty" inputmode="numeric" value="${v(d.qty)}" placeholder="0"></div>
+  </div><div class="preview" id="ePrev"></div>
+  <details class="ly" ${ly.sales==null?'open':''}><summary>Last year, same date ${ly.sales!=null?'· '+n0(ly.sales)+' SAR':auto&&auto.auto?'· '+n0(auto.sales)+' SAR (taken automatically from '+lyDate(S.entryDate).slice(0,4)+')':'· not entered yet'}</summary><div class="form" style="margin-top:10px">
+    <div class="f"><label for="lySales">LY sales</label><input id="lySales" inputmode="decimal" value="${v(ly.sales)}"></div>
+    <div class="f"><label for="lyTraffic">LY footfall</label><input id="lyTraffic" inputmode="numeric" value="${v(ly.traffic)}"></div>
+    <div class="f"><label for="lyInv">LY invoices</label><input id="lyInv" inputmode="numeric" value="${v(ly.inv)}"></div>
+    <div class="f"><label for="lyQty">LY qty</label><input id="lyQty" inputmode="numeric" value="${v(ly.qty)}"></div></div></details>
+  <div class="actions"><button class="btn primary" id="eSave">Save day</button><button class="btn" id="eSaveNext">Save and go to next day</button><button class="btn" id="eClear">Clear sales for this day</button><span class="msg" id="eMsg"></span></div></div>`;
+}
+function gridForm(){
+  const days=daysIn(S.ym);
+  let h=`<div class="card"><div class="h"><h2>${ymLabel(S.ym)}</h2><span>Type or paste straight from Excel (select cells in Excel, copy, click a cell here, paste)</span></div>
+   <div class="actions" style="margin:0 0 12px"><label class="note" for="splitAmt">Split a month target across days:</label><input id="splitAmt" class="btn" style="width:150px" inputmode="decimal" placeholder="Month target"><select id="splitHow" class="btn"><option value="ly">Like last year's daily pattern</option><option value="eq">Equal per day</option></select><button class="btn" id="splitGo">Fill targets</button></div>
+   ${pasteBoxHtml(FIELDS.map(f=>f[1]),'day')}
+   <p class="note" style="margin:8px 0">Grey numbers in the LY columns are filled in automatically from last year's saved days. Type over them only if you need a different number.</p>
+   <div class="tbox grid"><table class="t"><thead><tr><th>Date</th>${FIELDS.map(([k,l])=>`<th class="${k.startsWith('ly.')?'lyh':''}">${l}</th>`).join('')}</tr></thead><tbody>`;
+  days.forEach((date,ri)=>{const d=S.docs['d:'+date]||{};h+=`<tr><td>${niceDate(date)}</td>`+FIELDS.map(([k],ci)=>{const key=date+'|'+k;const val=S.dirty.has(key)?S.dirty.get(key):getF(d,k);
+     const au=k.startsWith('ly.')&&(val==null||val==='')?lyOf({date,...d}):null;const ph=au&&au.auto&&isNum(au[k.slice(3)])?` placeholder="${au[k.slice(3)]}" title="Automatic from ${lyDate(date).slice(0,4)}"`:'';
+     return `<td><input class="${k==='remark'?'rmk':''} ${S.dirty.has(key)?'dirty':''}" data-r="${ri}" data-c="${ci}" data-date="${date}" data-f="${k}" value="${esc(val??'')}"${ph} ${k==='remark'?'':'inputmode="decimal"'} aria-label="${niceDate(date)} ${FIELDS[ci][1]}"></td>`;}).join('')+'</tr>';});
+  return h+`</tbody></table></div><div class="actions"><button class="btn primary" id="gSave">Save changes</button><button class="btn" id="gUndo">Discard changes</button><span class="msg" id="gMsg">${S.dirty.size?S.dirty.size+' unsaved changes':''}</span></div></div>`;
+}
+function kpiForm(){const s=settings(S.ym);return `<div class="card"><div class="h"><h2>KPI targets · ${ymLabel(S.ym)}</h2><span>Used for the coloured status on the dashboard. Next months reuse these until you change them.</span></div>
+  <div class="form"><div class="f"><label for="kAtv">ATV target (SAR)</label><input id="kAtv" inputmode="decimal" value="${s.atv}"></div>
+  <div class="f"><label for="kUpt">UPT target</label><input id="kUpt" inputmode="decimal" value="${s.upt}"></div>
+  <div class="f"><label for="kAsp">ASP target (SAR)</label><input id="kAsp" inputmode="decimal" value="${s.asp}"></div>
+  <div class="f"><label for="kCr">Conversion target (%)</label><input id="kCr" inputmode="decimal" value="${+(s.cr*100).toFixed(2)}"></div>
+  <div class="f"><label for="kMonth">Month sales target (only if you have no daily targets)</label><input id="kMonth" inputmode="decimal" value="${S.docs['m:'+S.ym]&&isNum(S.docs['m:'+S.ym].target)?S.docs['m:'+S.ym].target:''}"></div>
+  <div class="f wide"><label for="kStore">Store name</label><input id="kStore" value="${esc(s.store||'')}"></div></div>
+  <div class="actions"><button class="btn primary" id="kSave">Save targets</button><span class="msg" id="kMsg"></span></div></div>`;}
+function histFormOld(){const y=S.histYear||(+todayIso().slice(0,4)-1);S.histYear=y;
+  let h=`<div class="card"><div class="h"><h2>Past months · monthly totals</h2><span>For months without daily data. Used in Year LFL.</span><select id="hYear" class="btn right">${Array.from({length:6},(_,i)=>+todayIso().slice(0,4)-i).map(v=>`<option ${v===y?'selected':''}>${v}</option>`).join('')}</select></div>
+   <div class="tbox grid"><table class="t"><thead><tr><th>Month</th><th>Sales</th><th>Footfall</th><th>Invoices</th><th>Qty</th></tr></thead><tbody>`;
+  for(let m=1;m<=12;m++){const id=`h:${y}-${String(m).padStart(2,'0')}`;const d=S.docs[id]||{};
+    h+=`<tr><td>${MONF[m-1]}</td>`+['sales','traffic','inv','qty'].map((k,ci)=>`<td><input data-h="${id}" data-f="${k}" data-r="${m-1}" data-c="${ci}" inputmode="decimal" value="${d[k]??''}" aria-label="${MONF[m-1]} ${k}"></td>`).join('')+'</tr>';}
+  return h+`</tbody></table></div><div class="actions"><button class="btn primary" id="hSave">Save ${y}</button><span class="msg" id="hMsg"></span></div></div>`;}
+function getF(d,k){if(k.startsWith('ly.'))return d.ly?d.ly[k.slice(3)]:undefined;return d[k];}
+function parseNum(s){s=String(s??'').replace(/[, ]/g,'').replace(/SAR/i,'').trim();if(s==='')return null;if(/%$/.test(s))return parseFloat(s)/100;const v=parseFloat(s);return isFinite(v)?v:NaN;}
+
+function describe(ch){const ids=ch.map(c=>c[0]);const kinds=[...new Set(ids.map(i=>i[0]))];const one=ids.length===1;const dt=i=>niceDate(i.slice(2));const mo=i=>ymLabel(i.slice(2,9));
+  const del=ch.every(c=>c[1]===null)?'Deleted ':'';
+  if(kinds.length>1) return del+`${ids.length} records`;
+  switch(kinds[0]){case 'd':return del+(one?'Daily sales '+dt(ids[0]):`Month sheet ${mo(ids[0])} (${ids.length} days)`);case 'p':return del+(one?'Staff sales '+dt(ids[0]):`Staff sales (${ids.length} days)`);
+    case 's':return del+'Staff targets '+mo(ids[0]);case 'm':return del+'Store targets '+mo(ids[0]);case 'h':return del+`YTD past data (${ids.length} months)`;}return 'Change';}
+async function save(changes,msgEl,label){
+  if(S.busy) return false; S.busy=true; if(msgEl){msgEl.className='msg';msgEl.textContent='Saving…';}
+  label=label||describe(changes);
+  try{const r=JSON.parse(await gas('saveDocs',S.pin,JSON.stringify(changes),label));S.rev=r.rev;changes.forEach(([id,v])=>{if(v===null)delete S.docs[id];else S.docs[id]=v;});
+    setStatus('Saved · everyone sees it now');S.busy=false;if(r.batch)toast('Saved: '+label,r.batch,label);return true;}
+  catch(e){S.busy=false;if(e.code==='pin'){S.canWrite=false;S.pin='';store('sc.pin');render();setStatus('PIN not accepted. Unlock again.',true);}
+    else if(msgEl){msgEl.className='msg err';msgEl.textContent='Couldn’t save. Check your connection and try again.';}return false;}
+}
+function bindEntry(){
+  const pg=$('pinGo'); if(pg){const go=async()=>{const v=$('pinIn').value.trim();if(!v)return;pg.disabled=true;let ok=false;try{ok=await gas('checkPin',v)}catch(e){}
+      if(ok){S.pin=v;S.canWrite=true;store('sc.pin',v);render();}else{$('pinMsg').textContent='That PIN isn’t right.';pg.disabled=false;}};
+    pg.onclick=go;$('pinIn').onkeydown=e=>{if(e.key==='Enter')go();};$('pinIn').focus();return;}
+  $('logout').onclick=()=>{S.canWrite=false;S.pin='';store('sc.pin');render();};
+  document.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>{S.sub=b.dataset.sub;render();});
+  if(S.sub==='day'){
+    const ids=['eSales','eTraffic','eInv','eQty','eTarget'];const prev=()=>{const t={sales:parseNum($('eSales').value)||0,qty:parseNum($('eQty').value)||0,inv:parseNum($('eInv').value)||0,traffic:parseNum($('eTraffic').value)||0};const r=ratios(t),s=settings(S.ym);
+      const tg=parseNum($('eTarget').value);const st=(v,tv,f,lab)=>`<div class="stat"><label>${lab}</label><div class="v num">${f(v)}</div><div class="n">target ${f(tv)} ${v!=null&&tv?`<span class="pill ${v>=tv?'good':'bad'}">${pct(v/tv,0)}</span>`:''}</div></div>`;
+      $('ePrev').innerHTML=st(t.sales||null,tg,n0,'Sales')+st(r.cr,s.cr,v=>pct(v),'CR')+st(r.atv,s.atv,n0,'ATV')+st(r.asp,s.asp,n0,'ASP')+st(r.upt,s.upt,n2,'UPT');};
+    ids.forEach(i=>$(i).oninput=prev);prev();
+    $('eDate').onchange=e=>{if(!e.target.value)return;S.entryDate=e.target.value;if(S.entryDate.slice(0,7)!==S.ym)S.ym=S.entryDate.slice(0,7);render();};
+    const collect=()=>{const doc={...(S.docs['d:'+S.entryDate]||{})};const bad=[];
+      [['target','eTarget'],['sales','eSales'],['traffic','eTraffic'],['inv','eInv'],['qty','eQty']].forEach(([k,id])=>{const v=parseNum($(id).value);if(Number.isNaN(v))bad.push(k);else if(v==null)delete doc[k];else doc[k]=v;});
+      const rm=$('eRemark').value.trim();if(rm)doc.remark=rm;else delete doc.remark;
+      const ly={};[['sales','lySales'],['traffic','lyTraffic'],['inv','lyInv'],['qty','lyQty']].forEach(([k,id])=>{const v=parseNum($(id).value);if(Number.isNaN(v))bad.push('LY '+k);else if(v!=null)ly[k]=v;});
+      if(Object.keys(ly).length)doc.ly=ly;else delete doc.ly;return{doc,bad};};
+    const doSave=async(next)=>{const {doc,bad}=collect();const m=$('eMsg');if(bad.length){m.className='msg err';m.textContent='Check these numbers: '+bad.join(', ');return;}
+      if(isNum(doc.sales)&&!(doc.inv>0)){m.className='msg err';m.textContent='Add invoices too, so ATV and UPT can be worked out.';return;}
+      if(await save([['d:'+S.entryDate,doc]],m)){const saved=S.entryDate;if(next){const d=dObj(S.entryDate);d.setDate(d.getDate()+1);S.entryDate=d.toISOString().slice(0,10);if(S.entryDate.slice(0,7)!==S.ym)S.ym=S.entryDate.slice(0,7);}
+        render();const mm=$('eMsg');if(mm){mm.className='msg ok';mm.textContent='Saved '+niceDate(saved)+'.';}}};
+    $('eSave').onclick=()=>doSave(false);$('eSaveNext').onclick=()=>doSave(true);
+    $('eClear').onclick=async()=>{const doc={...(S.docs['d:'+S.entryDate]||{})};['sales','traffic','inv','qty'].forEach(k=>delete doc[k]);if(await save([['d:'+S.entryDate,doc]],$('eMsg'),'Cleared sales '+niceDate(S.entryDate)))render();};
+  }
+  if(S.sub==='grid'){
+    const box=document.querySelector('.grid');
+    box.addEventListener('input',e=>{const i=e.target;if(!i.dataset.date)return;S.dirty.set(i.dataset.date+'|'+i.dataset.f,i.value);i.classList.add('dirty');$('gMsg').className='msg';$('gMsg').textContent=S.dirty.size+' unsaved changes';});
+    box.addEventListener('paste',e=>{const i=e.target;if(!i.dataset||!i.dataset.date)return;const txt=(e.clipboardData||window.clipboardData).getData('text');if(!/[\t\n]/.test(txt.trim()))return;e.preventDefault();
+      const rows=txt.replace(/\r/g,'').replace(/\n$/,'').split('\n').map(r=>r.split('\t'));const r0=+i.dataset.r,c0=+i.dataset.c;let n=0;
+      rows.forEach((row,ri)=>row.forEach((val,ci)=>{const el=box.querySelector(`input[data-r="${r0+ri}"][data-c="${c0+ci}"]`);if(!el)return;el.value=val.trim();S.dirty.set(el.dataset.date+'|'+el.dataset.f,el.value);el.classList.add('dirty');n++;}));
+      $('gMsg').className='msg';$('gMsg').textContent=`Pasted ${n} cells · ${S.dirty.size} unsaved changes`;});
+    box.addEventListener('keydown',e=>{const i=e.target;if(!i.dataset||i.dataset.r==null)return;let r=+i.dataset.r,c=+i.dataset.c;
+      if(e.key==='Enter'||e.key==='ArrowDown')r++;else if(e.key==='ArrowUp')r--;else return;e.preventDefault();const el=box.querySelector(`input[data-r="${r}"][data-c="${c}"]`);if(el){el.focus();el.select();}});
+    bindPasteBox(box);
+    $('gUndo').onclick=()=>{S.dirty.clear();render();};
+    $('splitGo').onclick=()=>{const amt=parseNum($('splitAmt').value);if(!(amt>0)){$('gMsg').className='msg err';$('gMsg').textContent='Type the month target first.';return;}
+      const days=daysIn(S.ym);let w=days.map(d=>{const x=S.docs['d:'+d];const l=lyOf(x?{date:d,...x}:{date:d});return $('splitHow').value==='ly'&&l&&l.sales>0?l.sales:0;});if(w.every(v=>!v))w=days.map(()=>1);const sw=w.reduce((a,b)=>a+b,0);
+      let acc=0;days.forEach((d,i)=>{let v=i===days.length-1?amt-acc:Math.round(amt*w[i]/sw);acc+=v;S.dirty.set(d+'|target',String(v));});render();S.sub='grid';$('gMsg').textContent='Targets filled · press Save changes';};
+    $('gSave').onclick=async()=>{const by={};const bad=[];
+      for(const [key,val] of S.dirty){const [date,f]=key.split('|');const doc=by[date]||(by[date]=JSON.parse(JSON.stringify(S.docs['d:'+date]||{})));
+        if(f==='remark'){if(val.trim())doc.remark=val.trim();else delete doc.remark;continue;}
+        const v=parseNum(val);if(Number.isNaN(v)){bad.push(niceDate(date));continue;}
+        if(f.startsWith('ly.')){const k=f.slice(3);doc.ly=doc.ly||{};if(v==null)delete doc.ly[k];else doc.ly[k]=v;if(!Object.keys(doc.ly).length)delete doc.ly;}
+        else{if(v==null)delete doc[f];else doc[f]=v;}}
+      const m=$('gMsg');if(bad.length){m.className='msg err';m.textContent='Not a number on: '+[...new Set(bad)].join(', ');return;}
+      const ch=Object.entries(by).map(([d,doc])=>['d:'+d,Object.keys(doc).length?doc:null]);if(!ch.length)return;
+      if(await save(ch,m)){S.dirty.clear();render();const mm=$('gMsg');mm.className='msg ok';mm.textContent=`Saved ${ch.length} days.`;}};
+  }
+  if(S.sub==='kpi'){$('kSave').onclick=async()=>{const doc={...(S.docs['m:'+S.ym]||{})};const g=id=>parseNum($(id).value);const bad=[];
+      [['atv','kAtv'],['upt','kUpt'],['asp','kAsp']].forEach(([k,id])=>{const v=g(id);if(!(v>0))bad.push(k.toUpperCase());else doc[k]=v;});
+      let cr=g('kCr');if(!(cr>0))bad.push('CR');else doc.cr=cr>1?cr/100:cr;const mt=g('kMonth');if(mt>0)doc.target=mt;else delete doc.target;
+      doc.store=$('kStore').value.trim()||'Store';const m=$('kMsg');if(bad.length){m.className='msg err';m.textContent='Check: '+bad.join(', ');return;}
+      if(await save([['m:'+S.ym,doc]],m)){m.className='msg ok';m.textContent='Targets saved.';chrome();}};}
+  if(S.sub==='histOld'){$('hYear').onchange=e=>{S.histYear=+e.target.value;render();};
+    const box=document.querySelector('.grid');box.addEventListener('paste',e=>{const i=e.target;if(!i.dataset||!i.dataset.h)return;const txt=(e.clipboardData||window.clipboardData).getData('text');if(!/[\t\n]/.test(txt.trim()))return;e.preventDefault();
+      txt.replace(/\r/g,'').replace(/\n$/,'').split('\n').forEach((row,ri)=>row.split('\t').forEach((val,ci)=>{const el=box.querySelector(`input[data-r="${+i.dataset.r+ri}"][data-c="${+i.dataset.c+ci}"]`);if(el)el.value=val.trim();}));});
+    $('hSave').onclick=async()=>{const ch={};const bad=[];document.querySelectorAll('input[data-h]').forEach(i=>{const v=parseNum(i.value);const doc=ch[i.dataset.h]||(ch[i.dataset.h]={});if(Number.isNaN(v))bad.push(i.getAttribute('aria-label'));else if(v!=null)doc[i.dataset.f]=v;});
+      const m=$('hMsg');if(bad.length){m.className='msg err';m.textContent='Not a number: '+bad.join(', ');return;}
+      const list=Object.entries(ch).map(([id,doc])=>[id,Object.keys(doc).length?doc:null]).filter(([id,doc])=>doc||S.docs[id]);
+      if(await save(list,m)){m.className='msg ok';m.textContent='Saved '+S.histYear+'.';}};}
+}
+
+/* ================= staff ================= */
+function staffPlan(ym){
+  if(S.docs['s:'+ym]) return {staff:S.docs['s:'+ym].staff||[],own:true};
+  const prev=Object.keys(S.docs).filter(k=>k.startsWith('s:')&&k.slice(2)<ym).sort().pop();
+  return {staff:prev?JSON.parse(JSON.stringify(S.docs[prev].staff||[])).map(x=>({...x,leave:0})):[],own:false,from:prev&&prev.slice(2)};
+}
+function splitTargets(staff,monthTarget,nod){
+  const w=staff.map(x=>(+x.ratio||0)*Math.max(nod-(+x.leave||0),0)/nod);const W=w.reduce((a,b)=>a+b,0);
+  return w.map(v=>W?monthTarget*v/W:0);
+}
+function staffDay(date){return S.docs['p:'+date]||{off:[],sales:{}};}
+function staffCalc(ym){
+  const M=month(ym), plan=staffPlan(ym), tg=splitTargets(plan.staff,M.monthTarget,M.nod);
+  const pdays=M.days.filter(d=>S.docs['p:'+d.date]);
+  const lastP=pdays.length?pdays[pdays.length-1].date:null;
+  const rows=plan.staff.map((x,i)=>{const t={sales:0,qty:0,inv:0};const per=M.blocks.map(()=>0);let worked=0;
+    M.days.forEach(d=>{const p=S.docs['p:'+d.date];if(!p)return;const v=(p.sales||{})[x.code];if(v){for(const k in t)if(isNum(v[k]))t[k]+=v[k];if(isNum(v.sales)){worked++;const bi=d.date.slice(8)<='10'?0:d.date.slice(8)<='20'?1:2;per[bi]+=v.sales;}}});
+    const r=ratios(t);
+    return {...x,target:tg[i],...t,...r,worked,ach:tg[i]?t.sales/tg[i]:null,var:t.sales-tg[i],avg:worked?t.sales/worked:null,
+      need:M.left?Math.max(tg[i]-t.sales,0)/M.left:null,blocks:M.blocks.map((b,bi)=>({target:M.monthTarget?tg[i]*b.target/M.monthTarget:0,sales:per[bi]}))};});
+  const T=rows.reduce((a,r)=>{a.target+=r.target;a.sales+=r.sales;a.qty+=r.qty;a.inv+=r.inv;return a;},{target:0,sales:0,qty:0,inv:0});
+  return {M,plan,rows,T,lastP,pdays:pdays.length};
+}
+function dayStaffTargets(date,staff,off){
+  const d=S.docs['d:'+date]||{};const dt=isNum(d.target)?d.target:0;
+  const on=staff.map(x=>off.includes(x.code)?0:(+x.ratio||0));const W=on.reduce((a,b)=>a+b,0);
+  return staff.map((x,i)=>W?dt*on[i]/W:0);
+}
+function achCls(a){return a==null?'':a>=1?'good':a>=0.9?'warn':'bad';}
+function staffView(){
+  const C=staffCalc(S.ym), M=C.M, s=M.set; const v=S.staffView||'month';
+  if(!C.plan.staff.length) return `<div class="card empty"><b>No staff list for ${ymLabel(S.ym)} yet.</b><br>Add your team under <b>Data entry → Staff targets</b>.</div>`;
+  let h=`<section class="block"><div class="h"><h2>Staff · ${ymLabel(S.ym)}</h2><span>Store target ${n0(M.monthTarget)} split by each person's ratio${C.plan.own?'':' (using last month’s team)'} · ${C.lastP?'staff sales up to '+niceDate(C.lastP):'no staff sales entered yet'}</span>
+    <div class="seg right">${[['month','Month'],['ten','10 days'],['day','Day']].map(([k,l])=>`<button data-sv="${k}" aria-selected="${v===k}">${l}</button>`).join('')}</div></div>`;
+  if(v==='month'){
+    const sorted=C.rows.filter(r=>r.target>0).slice().sort((a,b)=>(b.ach||0)-(a.ach||0));const pace=M.monthTarget?M.tdTarget/M.monthTarget:0;
+    h+=`<div class="card" style="margin-bottom:14px"><div class="h"><h2 style="font-size:16px">Achievement ranking</h2><span>Amber line: where everyone should be by now (${pct(pace,0)})</span></div><div class="rank">`+
+      sorted.map(r=>`<div class="r"><span>${esc(r.name)}</span><div class="track"><i class="${r.ach!=null&&r.ach>=pace?'good':r.ach>=pace*0.9?'warn':'bad'}" style="width:${Math.min((r.ach||0)*100,100)}%"></i><b style="left:${Math.min(pace*100,100)}%"></b></div><span class="p">${pct(r.ach,0)}</span></div>`).join('')+`</div></div>`;
+    h+=`<div class="tbox"><table class="t"><thead><tr><th>Name</th><th>Code</th><th>Section</th><th>Ratio</th><th>Month target</th><th>MTD sales</th><th>Ach %</th><th>Variance</th><th>Avg / day</th><th>Need / day</th><th>Qty</th><th>Invoices</th><th>ATV <span class="note">(${n0(s.atv)})</span></th><th>UPT <span class="note">(${n2(s.upt)})</span></th><th>ASP <span class="note">(${n0(s.asp)})</span></th></tr></thead><tbody>`;
+    const tr=ratios(C.T);
+    h+=`<tr class="tot"><td>Total</td><td></td><td></td><td></td><td>${n0(C.T.target)}</td><td>${n0(C.T.sales)}</td><td>${pct(C.T.target?C.T.sales/C.T.target:null,0)}</td><td class="${C.T.sales-C.T.target>=0?'g':'r'}">${n0(C.T.sales-C.T.target)}</td><td></td><td></td><td>${n0(C.T.qty)}</td><td>${n0(C.T.inv)}</td><td>${n0(tr.atv)}</td><td>${n2(tr.upt)}</td><td>${n0(tr.asp)}</td></tr>`;
+    const kc=(val,tgt)=>val==null?'':val>=tgt?'g':'r';
+    C.rows.forEach(r=>{h+=`<tr class="${r.target?'':'future'}"><td>${esc(r.name)}</td><td>${esc(r.code)}</td><td class="l">${esc(r.section)}</td><td>${r.ratio}${r.leave?` <span class="note">−${r.leave}d</span>`:''}</td><td>${n0(r.target)}</td><td>${n0(r.sales)}</td><td class="${r.ach==null?'':r.ach>=1?'g':'r'}">${pct(r.ach,0)}</td><td class="${r.var>=0?'g':'r'}">${n0(r.var)}</td><td>${n0(r.avg)}</td><td>${n0(r.need)}</td><td>${n0(r.qty)}</td><td>${n0(r.inv)}</td><td class="${kc(r.atv,s.atv)}">${n0(r.atv)}</td><td class="${kc(r.upt,s.upt)}">${n2(r.upt)}</td><td class="${kc(r.asp,s.asp)}">${n0(r.asp)}</td></tr>`;});
+    h+=`</tbody></table></div>`;
+  } else if(v==='ten'){
+    h+=`<div class="tbox"><table class="t"><thead><tr><th>Name</th>${M.blocks.map(b=>`<th>${b.name} target</th><th>Sales</th><th>%</th>`).join('')}</tr></thead><tbody>`;
+    const bt=M.blocks.map((b,i)=>C.rows.reduce((a,r)=>({t:a.t+r.blocks[i].target,s:a.s+r.blocks[i].sales}),{t:0,s:0}));
+    h+=`<tr class="tot"><td>Total</td>${bt.map(x=>`<td>${n0(x.t)}</td><td>${n0(x.s)}</td><td>${pct(x.t?x.s/x.t:null,0)}</td>`).join('')}</tr>`;
+    C.rows.forEach(r=>{h+=`<tr class="${r.target?'':'future'}"><td>${esc(r.name)}</td>`+r.blocks.map(b=>{const a=b.target?b.sales/b.target:null;return `<td>${n0(b.target)}</td><td>${n0(b.sales)}</td><td class="${a==null?'':a>=1?'g':'r'}">${pct(a,0)}</td>`;}).join('')+'</tr>';});
+    h+=`</tbody></table></div>`;
+  } else {
+    const date=S.staffDate&&S.staffDate.slice(0,7)===S.ym?S.staffDate:(C.lastP||M.days.find(d=>d.date===todayIso())?.date||M.days[0].date);
+    const p=staffDay(date), off=p.off||[], dt=dayStaffTargets(date,C.plan.staff,off), d=S.docs['d:'+date]||{};
+    h+=`<div class="actions" style="margin:0 0 12px"><label class="note" for="stDate">Day</label><input type="date" id="stDate" class="btn" value="${date}"><span class="note">Day target ${n0(d.target)} shared among staff working that day</span></div>
+      <div class="tbox"><table class="t"><thead><tr><th>Name</th><th>Working</th><th>Day target</th><th>Sales</th><th>%</th><th>Qty</th><th>Invoices</th><th>ATV</th><th>UPT</th><th>ASP</th></tr></thead><tbody>`;
+    let ts={sales:0,qty:0,inv:0},tt=0;
+    C.plan.staff.forEach((x,i)=>{const v2=(p.sales||{})[x.code]||{};const r=ratios({sales:v2.sales||0,qty:v2.qty||0,inv:v2.inv||0,traffic:0});const a=dt[i]&&isNum(v2.sales)?v2.sales/dt[i]:null;
+      tt+=dt[i];for(const k in ts)if(isNum(v2[k]))ts[k]+=v2[k];
+      h+=`<tr class="${off.includes(x.code)||!x.ratio?'future':''}"><td>${esc(x.name)}</td><td class="l">${off.includes(x.code)?'Off':!x.ratio?'No target':'Yes'}</td><td>${n0(dt[i])}</td><td>${n0(v2.sales)}</td><td class="${a==null?'':a>=1?'g':'r'}">${pct(a,0)}</td><td>${n0(v2.qty)}</td><td>${n0(v2.inv)}</td><td>${isNum(v2.inv)?n0(r.atv):''}</td><td>${isNum(v2.inv)?n2(r.upt):''}</td><td>${isNum(v2.qty)?n0(r.asp):''}</td></tr>`;});
+    h+=`<tr class="tot"><td>Total</td><td></td><td>${n0(tt)}</td><td>${n0(ts.sales)}</td><td>${pct(tt?ts.sales/tt:null,0)}</td><td>${n0(ts.qty)}</td><td>${n0(ts.inv)}</td><td colspan="3" class="l note">Store sales that day: ${n0(d.sales)}</td></tr></tbody></table></div>`;
+  }
+  return h+'</section>';
+}
+function staffTForm(){
+  const M=month(S.ym), plan=staffPlan(S.ym); if(!S.tEdit||S.tEdit.ym!==S.ym) S.tEdit={ym:S.ym,staff:JSON.parse(JSON.stringify(plan.staff))};
+  const st=S.tEdit.staff, tg=splitTargets(st,M.monthTarget,M.nod), R=st.reduce((a,x)=>a+(+x.ratio||0),0);
+  let h=`<div class="card"><div class="h"><h2>Staff targets · ${ymLabel(S.ym)}</h2><span>Store target ${n0(M.monthTarget)} is divided automatically by ratio. Use 0 for staff with no target (leave). Leave days reduce a person's share.</span></div>
+   ${!plan.own&&plan.from?`<p class="note">Showing the team from ${ymLabel(plan.from)}. Save to use it for ${ymLabel(S.ym)}.</p>`:''}
+   <div class="tbox grid"><table class="t"><thead><tr><th>Name</th><th>Code</th><th>Section</th><th>Ratio</th><th>Leave days</th><th>Month target</th><th>Share</th><th></th></tr></thead><tbody>`;
+  st.forEach((x,i)=>{h+=`<tr><td><input class="w" data-i="${i}" data-k="name" value="${esc(x.name)}" aria-label="Name"></td><td><input class="s" data-i="${i}" data-k="code" value="${esc(x.code)}" aria-label="Code"></td><td><input class="w" data-i="${i}" data-k="section" value="${esc(x.section)}" aria-label="Section"></td>
+    <td><input class="s" data-i="${i}" data-k="ratio" inputmode="decimal" value="${x.ratio??0}" aria-label="Ratio"></td><td><input class="s" data-i="${i}" data-k="leave" inputmode="numeric" value="${x.leave||0}" aria-label="Leave days"></td>
+    <td class="num" id="tg${i}">${n0(tg[i])}</td><td class="note" id="sh${i}">${pct(M.monthTarget?tg[i]/M.monthTarget:0,1)}</td><td><button class="x" data-del="${i}" aria-label="Remove ${esc(x.name)}">×</button></td></tr>`;});
+  h+=`<tr class="tot"><td>Total</td><td></td><td></td><td id="rSum">${R}</td><td></td><td id="tSum">${n0(tg.reduce((a,b)=>a+b,0))}</td><td></td><td></td></tr></tbody></table></div>
+   <div class="actions"><button class="btn" id="tAdd">+ Add person</button><button class="btn primary" id="tSave">Save staff targets</button><span class="msg" id="tMsg"></span></div>
+   <p class="note">Ratio guide from your sheet: 5 = full sales staff, 3–4 = part, 1–2 = cashier, 0 = on leave all month.</p></div>`;
+  return h;
+}
+function staffSForm(){
+  const plan=staffPlan(S.ym);
+  if(!plan.staff.length) return `<div class="card empty">Add your team under <b>Staff targets</b> first.</div>`;
+  if(!S.sDate||S.sDate.slice(0,7)!==S.ym){const t=todayIso();const ds=daysIn(S.ym);S.sDate=ds.find(x=>x<=t&&entered(S.docs['d:'+x])&&!S.docs['p:'+x])||ds.filter(x=>x<=t).pop()||ds[0];}
+  const p=staffDay(S.sDate), off=p.off||[], d=S.docs['d:'+S.sDate]||{}, dt=dayStaffTargets(S.sDate,plan.staff,off);
+  let h=`<div class="card"><div class="h"><h2>Staff sales</h2><span>One row per person. Paste from Excel works (Sales, Qty, Invoices columns).</span></div>
+   <div class="actions" style="margin:0 0 12px"><div class="f"><label for="sDate">Date</label><input type="date" id="sDate" value="${S.sDate}"></div><span class="note">Day target ${n0(d.target)} · store sales ${n0(d.sales)}</span></div>
+   <div class="tbox grid"><table class="t"><thead><tr><th>Name</th><th>Working</th><th>Day target</th><th>Sales</th><th>Qty</th><th>Invoices</th></tr></thead><tbody>`;
+  plan.staff.forEach((x,i)=>{const v=(p.sales||{})[x.code]||{};h+=`<tr><td>${esc(x.name)}</td><td><input type="checkbox" class="cb" data-on="${esc(x.code)}" ${off.includes(x.code)?'':'checked'} aria-label="${esc(x.name)} working"></td><td id="dt${i}">${n0(dt[i])}</td>`+
+    ['sales','qty','inv'].map((k,ci)=>`<td><input data-code="${esc(x.code)}" data-k="${k}" data-r="${i}" data-c="${ci}" inputmode="decimal" value="${v[k]??''}" aria-label="${esc(x.name)} ${k}"></td>`).join('')+'</tr>';});
+  h+=`</tbody></table></div><div class="recon" id="recon"></div>
+   <div class="actions"><button class="btn primary" id="sSave">Save day</button><button class="btn" id="sSaveNext">Save and go to next day</button><span class="msg" id="sMsg"></span></div></div>`;
+  return h;
+}
+function histForm(){
+  const y=S.histYear||+todayIso().slice(0,4); S.histYear=y;
+  const K=[['sales','Sales'],['traffic','Footfall'],['inv','Invoices'],['qty','Qty']];
+  let h=`<div class="card"><div class="h"><h2>YTD past data · ${y} vs ${y-1}</h2><span>Monthly totals for each month. Months with daily data fill in by themselves.</span><select id="hYear" class="btn right">${Array.from({length:5},(_,i)=>+todayIso().slice(0,4)-i).map(v=>`<option ${v===y?'selected':''}>${v}</option>`).join('')}</select></div>
+   <div class="tbox grid"><table class="t"><thead><tr><th>Month</th>${K.map(([,l])=>`<th>${l} ${y}</th>`).join('')}${K.map(([,l])=>`<th class="lyh">${l} ${y-1}</th>`).join('')}</tr></thead><tbody>`;
+  for(let m=1;m<=12;m++){const mm=String(m).padStart(2,'0'), ym=`${y}-${mm}`;const daily=daysIn(ym).some(x=>entered(S.docs['d:'+x]));
+    const ty=S.docs[`h:${y}-${mm}`]||{}, ly=S.docs[`h:${y-1}-${mm}`]||{};const lyd=daysIn(`${y-1}-${mm}`).map(x=>S.docs['d:'+x]).filter(entered);const lyAuto=lyd.length?tot(lyd):null;
+    if(daily){const r=monthTotalsFor(ym);h+=`<tr class="future"><td>${MONF[m-1]} <span class="note">· from daily data${daysIn(ym).every(x=>entered(S.docs['d:'+x]))?'':' (in progress)'}</span></td>${K.map(([k])=>`<td>${n0(r.ty&&r.ty[k])}</td>`).join('')}${K.map(([k])=>`<td>${n0(r.ly&&r.ly[k])}</td>`).join('')}</tr>`;continue;}
+    h+=`<tr><td>${MONF[m-1]}</td>`+K.map(([k],ci)=>`<td><input data-h="h:${y}-${mm}" data-f="${k}" data-r="${m-1}" data-c="${ci}" inputmode="decimal" value="${ty[k]??''}" aria-label="${MONF[m-1]} ${y} ${k}"></td>`).join('')+
+      K.map(([k],ci)=>`<td><input data-h="h:${y-1}-${mm}" data-f="${k}" data-r="${m-1}" data-c="${ci+4}" inputmode="decimal" value="${ly[k]??''}"${lyAuto&&ly[k]==null?` placeholder="${Math.round(lyAuto[k])}" title="Automatic from ${y-1} daily data"`:''} aria-label="${MONF[m-1]} ${y-1} ${k}"></td>`).join('')+'</tr>';}
+  return h+`</tbody></table></div><div class="actions"><button class="btn primary" id="hSave">Save ${y} and ${y-1}</button><span class="msg" id="hMsg"></span></div>
+    <p class="note">Tip: copy a block from Excel (for example Jan–Sep, 8 columns) and paste into the January sales cell. Grey numbers come automatically from last year's daily data.</p></div>`;
+}
+function bindEntry2(){
+  if(!S.canWrite) return;
+  if(S.sub==='staffT'){
+    const box=document.querySelector('.grid');const M=month(S.ym);
+    const recalc=()=>{const st=S.tEdit.staff,tg=splitTargets(st,M.monthTarget,M.nod);st.forEach((x,i)=>{const a=$('tg'+i),b=$('sh'+i);if(a)a.textContent=n0(tg[i]);if(b)b.textContent=pct(M.monthTarget?tg[i]/M.monthTarget:0,1);});
+      $('rSum').textContent=st.reduce((a,x)=>a+(+x.ratio||0),0);$('tSum').textContent=n0(tg.reduce((a,b)=>a+b,0));};
+    box.addEventListener('input',e=>{const i=e.target;if(i.dataset.i==null)return;const x=S.tEdit.staff[+i.dataset.i];const k=i.dataset.k;x[k]=(k==='ratio'||k==='leave')?(parseNum(i.value)||0):i.value;recalc();});
+    box.addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;S.tEdit.staff.splice(+b.dataset.del,1);render();});
+    $('tAdd').onclick=()=>{S.tEdit.staff.push({code:'',name:'',section:'',ratio:5,leave:0});render();const ins=document.querySelectorAll('input[data-k="name"]');ins[ins.length-1].focus();};
+    $('tSave').onclick=async()=>{const st=S.tEdit.staff.map(x=>({code:String(x.code||'').trim(),name:String(x.name||'').trim(),section:String(x.section||'').trim(),ratio:+x.ratio||0,leave:+x.leave||0})).filter(x=>x.name);
+      const m=$('tMsg');const codes=st.map(x=>x.code||x.name);if(new Set(codes).size!==codes.length){m.className='msg err';m.textContent='Two people have the same code. Give each person a unique code.';return;}
+      st.forEach(x=>{if(!x.code)x.code=x.name;});
+      if(await save([['s:'+S.ym,{staff:st}]],m)){S.tEdit=null;render();const mm=$('tMsg');mm.className='msg ok';mm.textContent='Staff targets saved.';}};
+  }
+  if(S.sub==='staffM') bindStaffM();
+  if(S.sub==='undo') bindHistory();
+  if(S.sub==='staffS'){
+    const plan=staffPlan(S.ym);if(!plan.staff.length)return;const box=document.querySelector('.grid');
+    const read=()=>{const off=[...box.querySelectorAll('[data-on]')].filter(c=>!c.checked).map(c=>c.dataset.on);const sales={};const bad=[];
+      box.querySelectorAll('input[data-code]').forEach(i=>{const v=parseNum(i.value);if(Number.isNaN(v)){bad.push(i.getAttribute('aria-label'));return;}if(v==null)return;(sales[i.dataset.code]=sales[i.dataset.code]||{})[i.dataset.k]=v;});return{off,sales,bad};};
+    const recon=()=>{const {off,sales}=read();const dt=dayStaffTargets(S.sDate,plan.staff,off);dt.forEach((v,i)=>{const c=$('dt'+i);if(c)c.textContent=n0(v);});
+      const sum=Object.values(sales).reduce((a,v)=>a+(v.sales||0),0);const d=S.docs['d:'+S.sDate]||{};const diff=isNum(d.sales)?sum-d.sales:null;
+      $('recon').innerHTML=`<span>Staff total <b class="num">${n0(sum)}</b></span><span>Store sales <b class="num">${n0(d.sales)}</b></span>${diff==null?'':`<span class="pill ${Math.abs(diff)<1?'good':'warn'}">${Math.abs(diff)<1?'Matches store sales':'Difference '+n0(diff)}</span>`}`;};
+    box.addEventListener('input',recon);box.addEventListener('change',recon);recon();
+    box.addEventListener('paste',e=>{const i=e.target;if(!i.dataset||i.dataset.code==null)return;const txt=(e.clipboardData||window.clipboardData).getData('text');if(!/[\t\n]/.test(txt.trim()))return;e.preventDefault();
+      txt.replace(/\r/g,'').replace(/\n$/,'').split('\n').forEach((row,ri)=>row.split('\t').forEach((val,ci)=>{const el=box.querySelector(`input[data-r="${+i.dataset.r+ri}"][data-c="${+i.dataset.c+ci}"]`);if(el)el.value=val.trim();}));recon();});
+    $('sDate').onchange=e=>{if(!e.target.value)return;S.sDate=e.target.value;if(S.sDate.slice(0,7)!==S.ym)S.ym=S.sDate.slice(0,7);render();};
+    const go=async(next)=>{const {off,sales,bad}=read();const m=$('sMsg');if(bad.length){m.className='msg err';m.textContent='Not a number: '+bad.join(', ');return;}
+      const doc={off,sales};const empty=!off.length&&!Object.keys(sales).length;
+      if(await save([['p:'+S.sDate,empty?null:doc]],m)){const was=S.sDate;if(next){const d=dObj(S.sDate);d.setDate(d.getDate()+1);S.sDate=d.toISOString().slice(0,10);if(S.sDate.slice(0,7)!==S.ym)S.ym=S.sDate.slice(0,7);}
+        render();const mm=$('sMsg');if(mm){mm.className='msg ok';mm.textContent='Saved '+niceDate(was)+'.';}}};
+    $('sSave').onclick=()=>go(false);$('sSaveNext').onclick=()=>go(true);
+  }
+  if(S.sub==='hist'){
+    $('hYear').onchange=e=>{S.histYear=+e.target.value;render();};
+    const box=document.querySelector('.grid');
+    box.addEventListener('paste',e=>{const i=e.target;if(!i.dataset||!i.dataset.h)return;const txt=(e.clipboardData||window.clipboardData).getData('text');if(!/[\t\n]/.test(txt.trim()))return;e.preventDefault();
+      txt.replace(/\r/g,'').replace(/\n$/,'').split('\n').forEach((row,ri)=>row.split('\t').forEach((val,ci)=>{const el=box.querySelector(`input[data-r="${+i.dataset.r+ri}"][data-c="${+i.dataset.c+ci}"]`);if(el)el.value=val.trim();}));});
+    $('hSave').onclick=async()=>{const ch={};const bad=[];document.querySelectorAll('input[data-h]').forEach(i=>{const v=parseNum(i.value);const doc=ch[i.dataset.h]||(ch[i.dataset.h]={});if(Number.isNaN(v))bad.push(i.getAttribute('aria-label'));else if(v!=null)doc[i.dataset.f]=v;});
+      const m=$('hMsg');if(bad.length){m.className='msg err';m.textContent='Not a number: '+bad.join(', ');return;}
+      const list=Object.entries(ch).map(([id,doc])=>[id,Object.keys(doc).length?doc:null]).filter(([id,doc])=>doc||S.docs[id]);
+      if(await save(list,m)){m.className='msg ok';m.textContent='Saved. The YTD LFL page is updated.';}};
+  }
+}
+
+/* ================= YTD ================= */
+function ytdCalc(y){
+  const rows=[];const TY={sales:0,qty:0,inv:0,traffic:0},LY={sales:0,qty:0,inv:0,traffic:0};let used=[];
+  for(let m=1;m<=12;m++){const ym=`${y}-${String(m).padStart(2,'0')}`;const r=monthTotalsFor(ym);rows.push({ym,m,...r});
+    if(r.ty&&r.ly&&r.ty.sales&&r.ly.sales){for(const k in TY){TY[k]+=r.ty[k]||0;LY[k]+=r.ly[k]||0;}used.push(m);}}
+  return {rows,TY,LY,used};
+}
+function ytdStrip(){
+  const y=+S.ym.slice(0,4);const Y=ytdCalc(y);if(!Y.used.length)return '';
+  const a=ratios(Y.TY),b=ratios(Y.LY);const lbl=Y.used.length===1?MON[Y.used[0]-1]:MON[Y.used[0]-1]+'–'+MON[Y.used[Y.used.length-1]-1];
+  return `<section class="block card"><div class="h"><h2>Year to date ${y}</h2><span>${lbl} vs same months ${y-1}</span><button class="btn right" data-tab="year">Open YTD LFL</button></div>
+   <div class="daygrid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+    <div class="stat"><label>Sales</label><div class="v num">${n0(Y.TY.sales)}</div><div class="n">LY ${n0(Y.LY.sales)} ${pill(lfl(Y.TY.sales,Y.LY.sales))}</div></div>
+    <div class="stat"><label>Footfall</label><div class="v num">${n0(Y.TY.traffic)}</div><div class="n">${pill(lfl(Y.TY.traffic,Y.LY.traffic))}</div></div>
+    <div class="stat"><label>CR</label><div class="v num">${pct(a.cr)}</div><div class="n">LY ${pct(b.cr)} ${pill(lfl(a.cr,b.cr))}</div></div>
+    <div class="stat"><label>ATV</label><div class="v num">${n0(a.atv)}</div><div class="n">LY ${n0(b.atv)} ${pill(lfl(a.atv,b.atv))}</div></div>
+    <div class="stat"><label>ASP</label><div class="v num">${n0(a.asp)}</div><div class="n">LY ${n0(b.asp)} ${pill(lfl(a.asp,b.asp))}</div></div>
+    <div class="stat"><label>UPT</label><div class="v num">${n2(a.upt)}</div><div class="n">LY ${n2(b.upt)} ${pill(lfl(a.upt,b.upt))}</div></div></div></section>`;
+}
+function ytdChart(Y,y){
+  const W=760,H=230,pl=46,pr=8,pt=10,pb=26,bw=(W-pl-pr)/12;const mx=Math.max(1,...Y.rows.map(r=>Math.max(r.ty?r.ty.sales||0:0,r.ly?r.ly.sales||0:0)));
+  const step=Math.pow(10,Math.floor(Math.log10(mx)));let tick=step;while(mx/tick>5)tick*=2;const top=Math.ceil(mx/tick)*tick;const yy=v=>pt+(H-pt-pb)*(1-v/top);
+  let s=`<svg class="chart ytdchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly sales this year vs last year">`;
+  for(let v=0;v<=top;v+=tick)s+=`<line x1="${pl}" x2="${W-pr}" y1="${yy(v)}" y2="${yy(v)}" stroke="var(--line)"/><text x="${pl-6}" y="${yy(v)+4}" text-anchor="end" font-size="10" fill="var(--muted)">${v>=1e6?(v/1e6)+'M':v>=1000?(v/1000)+'k':v}</text>`;
+  Y.rows.forEach((r,i)=>{const x=pl+i*bw;const ly=r.ly&&r.ly.sales,ty=r.ty&&r.ty.sales;
+    if(ly)s+=`<rect x="${x+bw*0.14}" y="${yy(ly)}" width="${bw*0.34}" height="${H-pb-yy(ly)}" rx="2" fill="var(--ly)"><title>${MONF[i]} ${y-1}: ${n0(ly)}</title></rect>`;
+    if(ty)s+=`<rect x="${x+bw*0.52}" y="${yy(ty)}" width="${bw*0.34}" height="${H-pb-yy(ty)}" rx="2" fill="var(--ink)"><title>${MONF[i]} ${y}: ${n0(ty)}</title></rect>`;
+    s+=`<text class="m" x="${x+bw/2}" y="${H-8}" text-anchor="middle" fill="var(--muted)" font-size="10">${MON[i]}</text>`;});
+  return s+'</svg>';
+}
+function yearView(){
+  const years=new Set();Object.keys(S.docs).forEach(k=>{if(/^[dh]:/.test(k))years.add(+k.slice(2,6));});years.add(+todayIso().slice(0,4));
+  const ys=[...years].sort();if(!S.year||!ys.includes(S.year))S.year=+todayIso().slice(0,4);const y=S.year;
+  const Y=ytdCalc(y),a=ratios(Y.TY),b=ratios(Y.LY);
+  let h=`<section class="block"><div class="h"><h2>YTD LFL · ${y} vs ${y-1}</h2><span>${Y.used.length?'Counts '+Y.used.map(m=>MON[m-1]).join(', '):'No months with both years yet'} · the current month updates automatically from daily data</span>
+    <select class="right btn" id="yearSel" aria-label="Year">${ys.slice().reverse().map(v=>`<option ${v===y?'selected':''}>${v}</option>`).join('')}</select></div>
+   ${vsLyCard(Y.TY.sales,Y.LY.sales,'Year to date vs last year',Y.used.length?MON[Y.used[0]-1]+'–'+MON[Y.used[Y.used.length-1]-1]+' '+y+' vs same months '+(y-1):'','YTD '+y,'YTD '+(y-1))}
+   <div class="tiles" style="margin:14px 0">${kpiTile('sales','YTD sales',Y.TY.sales,null,Y.LY.sales,{hint:'SAR'})}${kpiTile('traffic','YTD footfall',Y.TY.traffic,null,Y.LY.traffic)}${kpiTile('inv','YTD invoices',Y.TY.inv,null,Y.LY.inv)}${kpiTile('qty','YTD units',Y.TY.qty,null,Y.LY.qty)}
+    ${kpiTile('cr','YTD CR',a.cr,null,b.cr)}${kpiTile('atv','YTD ATV',a.atv,null,b.atv)}${kpiTile('asp','YTD ASP',a.asp,null,b.asp)}${kpiTile('upt','YTD UPT',a.upt,null,b.upt)}</div>
+   <div class="card" style="margin-bottom:14px"><div class="h"><h2 style="font-size:16px">Monthly sales</h2></div>${ytdChart(Y,y)}<div class="legend"><span><i style="background:var(--ink)"></i>${y}</span><span><i style="background:var(--ly)"></i>${y-1}</span></div></div>
+   <div class="tbox"><table class="t"><thead><tr><th>Month</th><th>Sales ${y}</th><th>Sales ${y-1}</th><th>LFL</th><th>Footfall</th><th>LY</th><th>LFL</th><th>Invoices</th><th>LY</th><th>LFL</th><th>CR</th><th>LY</th><th>LFL</th><th>ATV</th><th>LY</th><th>LFL</th><th>ASP</th><th>LY</th><th>LFL</th><th>UPT</th><th>LY</th><th>LFL</th></tr></thead><tbody>`;
+  const cell=(p,q,f)=>{const l=lfl(p,q);return `<td>${f(p)}</td><td>${f(q)}</td><td class="${l==null?'':l>=0?'g':'r'}">${sgn(l)}</td>`;};
+  const row=(label,ty,ly,cls)=>{if(!ty&&!ly)return `<tr class="future"><td>${label}</td>${'<td></td>'.repeat(21)}</tr>`;ty=ty||{};ly=ly||{};const p=ratios(ty),q=ratios(ly);
+    return `<tr class="${cls||''}"><td>${label}</td>${cell(ty.sales,ly.sales,n0)}${cell(ty.traffic,ly.traffic,n0)}${cell(ty.inv,ly.inv,n0)}${cell(p.cr,q.cr,v=>pct(v))}${cell(p.atv,q.atv,n0)}${cell(p.asp,q.asp,n0)}${cell(p.upt,q.upt,n2)}</tr>`;};
+  Y.rows.forEach(r=>{h+=row(MONF[r.m-1]+(r.src==='daily'?` <span class="note">(${r.days}/${r.of} days)</span>`:''),r.ty,r.ly);});
+  h+=row('YTD',Y.TY,Y.LY,'tot');
+  return h+`</tbody></table></div><p class="note">Months with daily data compare the days entered so far with the same dates last year, so the current month moves forward on its own each day and each new month starts automatically. Past months use the totals in Data entry → YTD past data.</p></section>`;
+}
+
+/* ================= last year: typed in, or taken automatically from last year's saved days ================= */
+function lyDate(date){return (+date.slice(0,4)-1)+date.slice(4);}
+function lyOf(d){
+  if(!d) return null;
+  if(d.ly&&isNum(d.ly.sales)) return d.ly;
+  const p=d.date?S.docs['d:'+lyDate(d.date)]:null;
+  if(entered(p)) return {sales:p.sales,qty:p.qty,inv:p.inv,traffic:p.traffic,auto:true};
+  return d.ly||null;
+}
+
+/* ================= paste a whole block (Excel) into any entry grid ================= */
+function applyBlock(box,r0,c0,text,transpose){
+  let rows=text.replace(/\r/g,'').replace(/\n+$/,'').split('\n').map(r=>r.split('\t'));
+  if(transpose){const t=[];rows.forEach((row,i)=>row.forEach((v,j)=>{(t[j]=t[j]||[])[i]=v;}));rows=t;}
+  let n=0;rows.forEach((row,ri)=>row.forEach((val,ci)=>{const el=box.querySelector(`input[data-r="${r0+ri}"][data-c="${c0+ci}"]`);if(!el||el.disabled)return;el.value=(val??'').trim();el.dispatchEvent(new Event('input',{bubbles:true}));n++;}));
+  return n;
+}
+function pasteBoxHtml(cols,rowLabel){
+  return `<details class="ly pastebox"><summary>Paste a whole month from Excel</summary>
+    <p class="note">In Excel, select the cells (for example 31 rows), copy, then paste below. Choose where the first pasted cell should go.</p>
+    <div class="form" style="margin-top:8px"><div class="f"><label for="pbCol">First column</label><select id="pbCol">${cols.map((c,i)=>`<option value="${i}">${esc(c)}</option>`).join('')}</select></div>
+    <div class="f"><label for="pbRow">First ${rowLabel}</label><input id="pbRow" type="number" min="1" value="1"></div>
+    <div class="f wide"><label><input type="checkbox" id="pbT"> My Excel has days across and ${rowLabel==='day'?'columns down':'rows down'} (swap rows and columns)</label></div>
+    <div class="f full"><label for="pbText">Pasted cells</label><textarea id="pbText" rows="5" placeholder="Click here and paste (Ctrl+V)"></textarea></div></div>
+    <div class="actions"><button class="btn" id="pbGo">Fill the table</button><span class="msg" id="pbMsg"></span></div></details>`;
+}
+function bindPasteBox(box){
+  const go=$('pbGo');if(!go)return;
+  go.onclick=()=>{const t=$('pbText').value;if(!t.trim()){$('pbMsg').className='msg err';$('pbMsg').textContent='Paste some cells first.';return;}
+    const n=applyBlock(box,Math.max(+$('pbRow').value||1,1)-1,+$('pbCol').value,t,$('pbT').checked);
+    $('pbMsg').className='msg ok';$('pbMsg').textContent=`Filled ${n} cells. Check them, then press Save.`;$('pbText').value='';};
+}
+function bindGridPaste(box){
+  box.addEventListener('paste',e=>{const i=e.target;if(!i.dataset||i.dataset.r==null)return;const txt=(e.clipboardData||window.clipboardData).getData('text');if(!/[\t\n]/.test(txt.trim()))return;e.preventDefault();
+    applyBlock(box,+i.dataset.r,+i.dataset.c,txt,false);});
+  box.addEventListener('keydown',e=>{const i=e.target;if(!i.dataset||i.dataset.r==null)return;let r=+i.dataset.r,c=+i.dataset.c;
+    if(e.key==='Enter'||e.key==='ArrowDown')r++;else if(e.key==='ArrowUp')r--;else return;e.preventDefault();const el=box.querySelector(`input[data-r="${r}"][data-c="${c}"]`);if(el){el.focus();el.select();}});
+}
+
+/* ================= staff month sheet ================= */
+function staffMForm(){
+  const plan=staffPlan(S.ym);if(!plan.staff.length) return `<div class="card empty">Add your team under <b>Staff targets</b> first.</div>`;
+  const k=S.smMetric||'sales';const days=daysIn(S.ym);
+  let h=`<div class="card"><div class="h"><h2>Staff month sheet · ${ymLabel(S.ym)}</h2><span>Every day of the month for every person. Pick what you are entering, then type or paste.</span></div>
+   <div class="actions" style="margin:0 0 12px"><div class="seg">${[['sales','Sales'],['qty','Qty'],['inv','Invoices']].map(([v,l])=>`<button data-sm="${v}" aria-selected="${k===v}">${l}</button>`).join('')}</div><span class="note">Tip: click the Day 1 cell of the first person and press Ctrl+V to paste a whole Excel block.</span></div>
+   ${pasteBoxHtml(plan.staff.map(x=>x.name),'day')}
+   <div class="tbox grid" style="margin-top:12px"><table class="t"><thead><tr><th>Date</th>${plan.staff.map(x=>`<th title="${esc(x.name)}">${esc(x.name.split(' ')[0])}</th>`).join('')}<th>Staff total</th><th>Store sales</th></tr></thead><tbody>`;
+  days.forEach((date,ri)=>{const p=S.docs['p:'+date]||{};const d=S.docs['d:'+date]||{};let sum=0;
+    h+=`<tr><td>${niceDate(date)}</td>`+plan.staff.map((x,ci)=>{const key=date+'|'+x.code+'|'+k;const val=S.smDirty.has(key)?S.smDirty.get(key):(((p.sales||{})[x.code]||{})[k]);const n=parseNum(val);if(isNum(n))sum+=n;
+      return `<td><input class="${S.smDirty.has(key)?'dirty':''}" data-r="${ri}" data-c="${ci}" data-date="${date}" data-code="${esc(x.code)}" inputmode="decimal" value="${esc(val??'')}" aria-label="${niceDate(date)} ${esc(x.name)} ${k}"></td>`;}).join('')+
+      `<td class="num" id="smt${ri}">${sum?n0(sum):''}</td><td class="note">${k==='sales'?n0(d.sales):k==='qty'?n0(d.qty):n0(d.inv)}</td></tr>`;});
+  return h+`</tbody></table></div><div class="actions"><button class="btn primary" id="smSave">Save changes</button><button class="btn" id="smUndo">Discard changes</button><span class="msg" id="smMsg">${S.smDirty.size?S.smDirty.size+' unsaved changes':''}</span></div></div>`;
+}
+function bindStaffM(){
+  const plan=staffPlan(S.ym);if(!plan.staff.length)return;const box=document.querySelector('.grid');
+  document.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{S.smMetric=b.dataset.sm;render();});
+  box.addEventListener('input',e=>{const i=e.target;if(!i.dataset.date)return;S.smDirty.set(i.dataset.date+'|'+i.dataset.code+'|'+(S.smMetric||'sales'),i.value);i.classList.add('dirty');
+    const r=i.dataset.r;let s=0;box.querySelectorAll(`input[data-r="${r}"]`).forEach(x=>{const v=parseNum(x.value);if(isNum(v))s+=v;});$('smt'+r).textContent=s?n0(s):'';
+    $('smMsg').className='msg';$('smMsg').textContent=S.smDirty.size+' unsaved changes';});
+  bindGridPaste(box);bindPasteBox(box);
+  $('smUndo').onclick=()=>{S.smDirty.clear();render();};
+  $('smSave').onclick=async()=>{const by={};const bad=[];
+    for(const [key,val] of S.smDirty){const [date,code,k]=key.split('|');const doc=by[date]||(by[date]=JSON.parse(JSON.stringify(S.docs['p:'+date]||{off:[],sales:{}})));doc.sales=doc.sales||{};
+      const v=parseNum(val);if(Number.isNaN(v)){bad.push(niceDate(date));continue;}const o=doc.sales[code]||(doc.sales[code]={});if(v==null)delete o[k];else o[k]=v;if(!Object.keys(o).length)delete doc.sales[code];}
+    const m=$('smMsg');if(bad.length){m.className='msg err';m.textContent='Not a number on: '+[...new Set(bad)].join(', ');return;}
+    const ch=Object.entries(by).map(([d,doc])=>['p:'+d,(Object.keys(doc.sales||{}).length||(doc.off||[]).length)?doc:null]);if(!ch.length)return;
+    if(await save(ch,m,`Staff month sheet ${ymLabel(S.ym)} (${ch.length} days)`)){S.smDirty.clear();render();const mm=$('smMsg');mm.className='msg ok';mm.textContent=`Saved ${ch.length} days.`;}};
+}
+
+/* ================= undo & history ================= */
+function historyForm(){
+  return `<div class="card"><div class="h"><h2>Undo &amp; history</h2><span>Every save is kept. Undo puts the data back exactly as it was before that save, including anything deleted.</span><button class="btn right" id="hiBackup">Make a backup copy now</button></div>
+    <div id="hiList"><p class="note">Loading recent changes…</p></div><span class="msg" id="hiMsg"></span></div>`;
+}
+async function bindHistory(){
+  $('hiBackup').onclick=async()=>{const m=$('hiMsg');m.className='msg';m.textContent='Making a backup…';try{const n=await gas('backupNow',S.pin);m.className='msg ok';m.textContent=`Backup saved in your Google Sheet as the tab “${n}”.`;}catch(e){m.className='msg err';m.textContent='Backup failed. Try again.';}};
+  let list=[];try{list=JSON.parse(await gas('getHistory',S.pin));}catch(e){$('hiList').innerHTML='<p class="msg err">Couldn’t load the history.</p>';return;}
+  if(!$('hiList'))return;
+  if(!list.length){$('hiList').innerHTML='<p class="note">No changes yet.</p>';return;}
+  const fmtT=t=>{const d=new Date(t);return isNaN(d)?t:d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});};
+  $('hiList').innerHTML=`<div class="tbox"><table class="t"><thead><tr><th>What changed</th><th>When</th><th>Records</th><th></th></tr></thead><tbody>`+
+    list.map(b=>`<tr><td class="l">${esc(b.label)}</td><td class="l">${fmtT(b.time)}</td><td>${b.count}</td><td><button class="btn" data-undo="${esc(b.batch)}" data-label="${esc(b.label)}">Undo</button></td></tr>`).join('')+`</tbody></table></div>`;
+  $('hiList').querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>confirmUndo(b.dataset.undo,b.dataset.label));
+}
+function confirmUndo(batch,label){
+  $('sheet').innerHTML=`<h3>Undo this change?</h3><p class="note">“${esc(label)}”. The records it changed go back to how they were before. You can undo the undo afterwards if needed.</p>
+    <div class="actions"><button class="btn primary" id="unGo">Undo</button><button class="btn" id="unNo">Keep it</button><span class="msg" id="unMsg"></span></div>`;
+  $('scrim').hidden=false;$('unNo').onclick=()=>$('scrim').hidden=true;
+  $('unGo').onclick=async()=>{$('unGo').disabled=true;try{const r=JSON.parse(await gas('undoBatch',S.pin,batch));S.rev=-1;await loadAll(true);$('scrim').hidden=true;toast('Undone: '+label,r.batch,'Undo: '+label);}
+    catch(e){$('unMsg').className='msg err';$('unMsg').textContent=e.code==='pin'?'PIN not accepted. Unlock again.':'Couldn’t undo. '+(e.message||'');$('unGo').disabled=false;}};
+}
+let toastTimer=null;
+function toast(text,batch,label){
+  let t=$('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t);}
+  t.innerHTML=`<span>${esc(text)}</span>${batch?`<button class="btn" id="toastUndo">Undo</button>`:''}`;t.hidden=false;
+  if(batch)$('toastUndo').onclick=()=>{t.hidden=true;confirmUndo(batch,label);};
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;},9000);
+}
+
+/* ================= WhatsApp report ================= */
+function waText(){const M=month(S.ym);const L=M.last;if(!L)return 'No sales entered yet for '+ymLabel(S.ym)+'.';
+  const Lly=lyOf(L);const r=ratios(tot([L])),rl=Lly?ratios(tot([Lly])):{};const s=M.set;const lyS=Lly&&Lly.sales;
+  return [`*${s.store||'Store'} · ${niceDate(L.date)}*`,'',`Today target: ${n0(L.target)}`,`Today sales: ${n0(L.sales)}`,`Achieved: ${pct(L.target?L.sales/L.target:null)}`,`LY sales: ${n0(lyS)}`,`Day LFL: ${sgn(lfl(L.sales,lyS))}`,'',
+    `MTD target: ${n0(M.monthTarget)}`,`MTD sales: ${n0(M.ty.sales)}`,`Achieved: ${pct(M.ach)}`,`MTD LFL: ${sgn(lfl(M.ty.sales,M.lyM.sales))}`,`Needed per day: ${n0(M.reqDay)}`,'',
+    `Invoices: ${n0(L.inv)}`,`Qty sold: ${n0(L.qty)}`,`ATV: ${n0(r.atv)} (target ${n0(s.atv)})`,`UPT: ${n2(r.upt)} (target ${n2(s.upt)})`,`ASP: ${n0(r.asp)} (target ${n0(s.asp)})`,'',
+    `Footfall: ${n0(L.traffic)} (LY ${n0(Lly&&Lly.traffic)})`,`CR: ${pct(r.cr)} (target ${pct(s.cr,0)}, LY ${pct(rl.cr)})`].join('\n');}
+function waSheet(){$('sheet').innerHTML=`<h3>WhatsApp report</h3><p class="note">Copy and paste into your group.</p><textarea id="waT" readonly>${esc(waText())}</textarea><div class="actions"><button class="btn primary" id="waCopy">Copy</button><button class="btn" id="waClose">Close</button><span class="msg" id="waMsg"></span></div>`;
+  $('scrim').hidden=false;$('waClose').onclick=()=>$('scrim').hidden=true;
+  $('waCopy').onclick=async()=>{const t=$('waT');try{await navigator.clipboard.writeText(t.value);$('waMsg').className='msg ok';$('waMsg').textContent='Copied.';}catch(e){t.focus();t.select();try{document.execCommand('copy');$('waMsg').className='msg ok';$('waMsg').textContent='Copied.';}catch(_){$('waMsg').textContent='Text selected · press copy on your keyboard.';}}};}
+
+/* ================= Excel (.xlsx) writer ================= */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zip(files){const enc=new TextEncoder();const chunks=[];let off=0;const cen=[];
+  const u16=v=>[v&255,(v>>8)&255],u32=v=>[v&255,(v>>8)&255,(v>>16)&255,(v>>>24)&255];
+  files.forEach(([name,str])=>{const data=enc.encode(str),nm=enc.encode(name),crc=crc32(data);
+    const head=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(nm.length),...u16(0)]);
+    chunks.push(head,nm,data);cen.push({nm,crc,size:data.length,off});off+=head.length+nm.length+data.length;});
+  const cstart=off;cen.forEach(c=>{const h=new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c.crc),...u32(c.size),...u32(c.size),...u16(c.nm.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(c.off)]);chunks.push(h,c.nm);off+=h.length+c.nm.length;});
+  chunks.push(new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(cen.length),...u16(cen.length),...u32(off-cstart),...u32(cstart),...u16(0)]));
+  const out=new Uint8Array(chunks.reduce((a,c)=>a+c.length,0));let p=0;chunks.forEach(c=>{out.set(c,p);p+=c.length;});return out;}
+function xlsx(sheets){
+  const x=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'');
+  const col=i=>{let s='';i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
+  const sheetXml=sh=>{const widths=sh.head.map((h,i)=>Math.min(Math.max(String(h).length,...sh.rows.map(r=>String(r[i]??'').length))+2,48));
+    let o=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>`;
+    const cell=(v,r,c,st)=>{const ref=col(c)+r;if(v==null||v==='')return '';if(typeof v==='number'&&isFinite(v)){const pct=sh.fmt&&sh.fmt[c]==='%';const s=pct?(st?7:6):(st||(Number.isInteger(v)?3:2));return `<c r="${ref}" s="${s}"><v>${v}</v></c>`;}return `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:''}><is><t xml:space="preserve">${x(v)}</t></is></c>`;};
+    o+=`<row r="1">${sh.head.map((h,i)=>cell(h,1,i,1)).join('')}</row>`;
+    sh.rows.forEach((row,ri)=>{const st=row.__total?4:0;o+=`<row r="${ri+2}">${row.map((v,ci)=>cell(v,ri+2,ci,st&&typeof v!=='number'?4:st?5:0)).join('')}</row>`;});
+    return o+`</sheetData></worksheet>`;};
+  const files=[['[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`],
+    ['_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ['xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${x(s.name.slice(0,31))}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`],
+    ['xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ['xl/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF111111"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE3F1D0"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="2" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="10" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="10" fontId="2" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`]];
+  sheets.forEach((s,i)=>files.push([`xl/worksheets/sheet${i+1}.xml`,sheetXml(s)]));
+  return zip(files);
+}
+
+/* ================= month-end Excel download ================= */
+function xlMonths(scope,y){if(scope==='month')return [S.ym];const out=[];for(let m=1;m<=12;m++){const ym=`${y}-${String(m).padStart(2,'0')}`;
+  const has=daysIn(ym).some(d=>S.docs['d:'+d]||S.docs['p:'+d])||S.docs['s:'+ym]||S.docs['m:'+ym];if(has)out.push(ym);}return out;}
+function buildDashWorkbook(scope){
+  const y=+S.ym.slice(0,4),ms=xlMonths(scope,y);
+  const n=v=>isNum(v)?Math.round(v*100)/100:'';const p=v=>isNum(v)?Math.round(v*10000)/10000:'';
+  const totRow=(label,vals)=>{const t=vals.slice();t[0]=label;t.__total=1;return t;};
+  const sum=[],daily=[],blocks=[],staff=[],sdaily=[];
+  const codes=[];const nameOf={};
+  ms.forEach(ym=>{staffPlan(ym).staff.forEach(x=>{if(!codes.includes(x.code))codes.push(x.code);nameOf[x.code]=x.name;});});
+  ms.forEach(ym=>{
+    const M=month(ym),set=M.set,r=M.r;
+    sum.push([ymLabel(ym),n(M.monthTarget),n(M.ty.sales),p(M.ach),n(M.tdTarget),p(M.achTD),M.done.length+' / '+M.nod,n(M.ty.traffic),n(M.ty.inv),n(M.ty.qty),n(r.atv),n(r.upt),n(r.asp),p(r.cr),n(M.lyM.sales),p(lfl(M.ty.sales,M.lyM.sales)),n(set.atv),n(set.upt),n(set.asp),p(set.cr)]);
+    M.days.forEach(d=>{const has=entered(d)||isNum(d.target);if(!has)return;const rr=ratios(d),ly=lyOf(d)||{};
+      daily.push([d.date,DOW[dObj(d.date).getDay()],n(d.target),n(d.sales),p(isNum(d.target)&&d.target&&isNum(d.sales)?d.sales/d.target:null),n(d.traffic),n(d.inv),n(d.qty),n(rr.atv),n(rr.upt),n(rr.asp),p(rr.cr),n(ly.sales),n(ly.traffic),n(ly.inv),n(ly.qty),p(lfl(d.sales,ly.sales)),d.remark||'']);});
+    if(M.done.length||M.monthTarget){const t=M.ty,rr=M.r;daily.push(totRow('Total '+ymLabel(ym),['','',n(tot(M.days).target),n(t.sales),p(M.achTD),n(t.traffic),n(t.inv),n(t.qty),n(rr.atv),n(rr.upt),n(rr.asp),p(rr.cr),n(M.lyM.sales),n(M.lyM.traffic),n(M.lyM.inv),n(M.lyM.qty),p(lfl(t.sales,M.lyM.sales)),'']));}
+    M.blocks.forEach(b=>blocks.push([ymLabel(ym),b.name,b.from,b.to,n(b.target),n(b.sales),p(b.target?b.sales/b.target:null),b.done+' / '+b.count]));
+    const C=staffCalc(ym);
+    C.rows.forEach(x=>staff.push([ymLabel(ym),x.code,x.name,x.section||'',+x.ratio||0,+x.leave||0,n(x.target),n(x.sales),p(x.ach),n(x.var),n(x.qty),n(x.inv),n(x.atv),n(x.upt),n(x.asp),x.worked,n(x.avg)]));
+    if(C.rows.length)staff.push(totRow('Total '+ymLabel(ym),['','','','','','',n(C.T.target),n(C.T.sales),p(C.T.target?C.T.sales/C.T.target:null),n(C.T.sales-C.T.target),n(C.T.qty),n(C.T.inv),'','','','','']));
+    M.days.forEach(d=>{const pd=S.docs['p:'+d.date];if(!pd)return;const off=(pd.off||[]).map(c=>nameOf[c]||c);
+      sdaily.push([d.date,DOW[dObj(d.date).getDay()],off.join(', '),...codes.map(c=>{const v=(pd.sales||{})[c];return v&&isNum(v.sales)?n(v.sales):'';})]);});
+  });
+  const Y=ytdCalc(y);const ytd=Y.rows.map(r=>{const ty=r.ty||{},ly=r.ly||{};return [MONF[r.m-1]+' '+y,n(ty.sales),n(ly.sales),isNum(ty.sales)&&isNum(ly.sales)?n(ty.sales-ly.sales):'',p(lfl(ty.sales,ly.sales)),n(ty.traffic),n(ly.traffic),n(ty.inv),n(ly.inv),n(ty.qty),n(ly.qty),r.src==='daily'?'Daily entries ('+r.days+' of '+r.of+' days)':r.ty?'Month totals':''];});
+  if(Y.used.length)ytd.push(totRow('Year to date ('+Y.used.length+' months)',['',n(Y.TY.sales),n(Y.LY.sales),n(Y.TY.sales-Y.LY.sales),p(lfl(Y.TY.sales,Y.LY.sales)),n(Y.TY.traffic),n(Y.LY.traffic),n(Y.TY.inv),n(Y.LY.inv),n(Y.TY.qty),n(Y.LY.qty),'']));
+  const P=['','','','%','','%','','','','','','','','%','','%','','','','%'];
+  return xlsx([
+    {name:'Summary',head:['Month','Month target','Sales','Achievement','Target to date','Ach. to date','Days entered','Footfall','Invoices','Qty','ATV','UPT','ASP','CR','LY sales (same days)','LFL','ATV target','UPT target','ASP target','CR target'],rows:sum,fmt:P},
+    {name:'Daily',head:['Date','Day','Target','Sales','Achievement','Footfall','Invoices','Qty','ATV','UPT','ASP','CR','LY sales','LY footfall','LY invoices','LY qty','LFL','Remark'],rows:daily,fmt:['','','','','%','','','','','','','%','','','','','%','']},
+    {name:'10-day blocks',head:['Month','Block','From','To','Target','Sales','Achievement','Days entered'],rows:blocks,fmt:['','','','','','','%','']},
+    {name:'Staff',head:['Month','Code','Name','Section','Ratio','Leave days','Target','Sales','Achievement','Variance','Qty','Invoices','ATV','UPT','ASP','Days worked','Avg per day'],rows:staff,fmt:['','','','','','','','','%']},
+    {name:'Staff daily sales',head:['Date','Day','Off',...codes.map(c=>(nameOf[c]||'')+' ('+c+')')],rows:sdaily},
+    {name:'YTD LFL '+y,head:['Month','This year sales','Last year sales','Growth','Growth %','TY footfall','LY footfall','TY invoices','LY invoices','TY qty','LY qty','Source'],rows:ytd,fmt:['','','','','%']}]);
+}
+function xlSheet(){const y=S.ym.slice(0,4);
+  $('sheet').innerHTML=`<h3>Download Excel</h3><p class="note">Keep a copy of the records. Includes summary, daily figures, 10-day blocks, staff targets & sales, staff daily sales and YTD LFL.</p>
+  <div class="actions" style="flex-direction:column;align-items:stretch;gap:8px"><button class="btn primary" data-xl="month">${ymLabel(S.ym)}</button><button class="btn" data-xl="year">Whole year ${y}</button><button class="btn" id="xlClose">Close</button><span class="msg" id="xlMsg"></span></div>`;
+  $('scrim').hidden=false;$('xlClose').onclick=()=>$('scrim').hidden=true;
+  $('sheet').querySelectorAll('[data-xl]').forEach(b=>b.onclick=()=>{try{const sc=b.dataset.xl;const bytes=buildDashWorkbook(sc);
+    const store=(settings(S.ym).store||'Store').replace(/[\\/:*?"<>|]/g,'');const name=`${store} dashboard ${sc==='month'?ymLabel(S.ym):'year '+y} (${todayIso()}).xlsx`;
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
+    $('xlMsg').className='msg ok';$('xlMsg').textContent='Downloaded: '+name;}catch(e){$('xlMsg').className='msg err';$('xlMsg').textContent='Could not make the file: '+e.message;}});}
+
+/* ================= events & boot ================= */
+document.addEventListener('click',e=>{const t=e.target.closest('[data-tab]');if(t){S.tab=t.dataset.tab;store('sc.tab',S.tab);render();window.scrollTo(0,0);return;}
+  const a=e.target.closest('[data-act="wa"]');if(a)waSheet();if(e.target.closest('[data-act="xl"]'))xlSheet();});
+$('scrim').addEventListener('click',e=>{if(e.target===$('scrim'))$('scrim').hidden=true;});
+$('monthSel').onchange=e=>{if(S.dirty.size&&!confirmLeave())return;S.ym=e.target.value;render();};
+$('prevM').onclick=()=>{const ms=allMonths();const i=ms.indexOf(S.ym);if(i>0){S.dirty.clear();S.ym=ms[i-1];render();}};
+$('nextM').onclick=()=>{const ms=allMonths();const i=ms.indexOf(S.ym);if(i<ms.length-1){S.dirty.clear();S.ym=ms[i+1];render();}};
+document.addEventListener('change',e=>{if(e.target.id==='yearSel'){S.year=+e.target.value;render();}if(e.target.id==='stDate'){S.staffDate=e.target.value;render();}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-sv]');if(b){S.staffView=b.dataset.sv;render();}});
+function confirmLeave(){S.dirty.clear();return true;}
+async function loadAll(force,cached){const raw=cached||await gas('getAll');const d=JSON.parse(raw);if(!cached)store('sc.cache',raw);S.docs=d.docs||{};S.rev=d.rev;
+  if(force||(!S.busy&&!(S.tab==='entry'&&S.canWrite))) render(); else chrome();
+  setStatus('Live · updated '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));}
+async function poll(){if(document.visibilityState!=='visible'||S.busy||S.dirty.size||S.smDirty.size)return;try{const r=await gas('getRev');if(r!==S.rev)await loadAll();}catch(e){}}
+(async()=>{S.tab=recall('sc.tab')||'dash';
+  const pin=recall('sc.pin');if(pin){try{if(await gas('checkPin',pin)){S.pin=pin;S.canWrite=true;}else store('sc.pin');}catch(e){}}
+  try{await loadAll();render();}catch(e){const c=recall('sc.cache');
+    if(c){try{await loadAll(true,c);render();setStatus('Offline · showing the last saved data',true);}catch(_){}}
+    else{$('app').innerHTML='<div class="card empty"><b>Couldn’t load the dashboard.</b><br>Check your internet connection and reload.</div>';setStatus('Offline',true);}
+    setInterval(()=>{if(document.visibilityState==='visible')loadAll().catch(()=>{});},30000);return;}
+  setInterval(poll,30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')poll();});
+})();
+</script>
+<style>
+#instBtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;background:#16202a;color:#fff;border:0;border-radius:999px;padding:12px 22px;font:600 16px 'IBM Plex Sans',Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer}
+@media (min-width:900px){#instBtn{left:auto;right:24px;transform:none;bottom:24px}}
+@media (display-mode:standalone){#instBtn{display:none!important}}
+#instHelp{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;display:flex;align-items:flex-end;justify-content:center}
+#instHelp[hidden]{display:none}
+#instHelp .box{background:#fff;color:#16202a;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));font:16px/1.5 'IBM Plex Sans',Arial,sans-serif}
+@media (min-width:900px){#instHelp{align-items:center}#instHelp .box{border-radius:16px}}
+#instHelp h3{margin:0 0 10px;font-size:20px}#instHelp ol{margin:0 0 14px;padding-left:22px}#instHelp li{margin:6px 0}
+#instHelp button{width:100%;padding:12px;border-radius:10px;border:0;background:#16202a;color:#fff;font:600 16px inherit;cursor:pointer}
+</style>
+<button id="instBtn">⬇ Install app</button>
+<div id="instHelp" hidden><div class="box"><h3>Install Dul-KPI Dashboard</h3><ol id="instSteps"></ol><button id="instOk">OK</button></div></div>
+<script>(function(){let ev=null;const B=document.getElementById('instBtn'),H=document.getElementById('instHelp');
+if(matchMedia('(display-mode: standalone)').matches||navigator.standalone)B.hidden=true;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();ev=e;});
+addEventListener('appinstalled',()=>{B.hidden=true;H.hidden=true;});
+B.onclick=async()=>{if(ev){ev.prompt();try{const c=await ev.userChoice;if(c&&c.outcome==='accepted')B.hidden=true;}catch(e){}ev=null;return;}
+  const ua=navigator.userAgent,ios=/iPhone|iPad|iPod/.test(ua),android=/Android/.test(ua);
+  document.getElementById('instSteps').innerHTML=ios?'<li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (square with an arrow ↑).</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>'
+   :android?'<li>Tap the <b>⋮</b> menu at the top right of Chrome.</li><li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li><li>Tap <b>Install</b> / <b>Add</b>. The <b>Dul KPI</b> icon appears on your home screen.</li>'
+   :'<li>Click the <b>install icon</b> at the right end of Chrome’s address bar (a small screen with an arrow), <b>or</b></li><li>Click <b>⋮ → Cast, save and share → Install page as app</b>.</li><li>Click <b>Install</b>.</li>';
+  H.hidden=false;};
+document.getElementById('instOk').onclick=()=>{H.hidden=true;};H.onclick=e=>{if(e.target===H)H.hidden=true;};})();</script><script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+</body>
+</html>
