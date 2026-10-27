@@ -708,6 +708,9 @@ async function poll(){
 })();
 </script>
 
-<script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+<button id="instBtn" hidden style="position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;background:#16202a;color:#fff;border:0;border-radius:999px;padding:12px 22px;font:600 16px 'IBM Plex Sans',Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer">⬇ Install app</button>
+<script>let instEv=null;addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e;document.getElementById('instBtn').hidden=false;});
+document.getElementById('instBtn').onclick=async()=>{if(!instEv)return;instEv.prompt();try{await instEv.userChoice;}catch(e){}instEv=null;document.getElementById('instBtn').hidden=true;};
+addEventListener('appinstalled',()=>{document.getElementById('instBtn').hidden=true;});</script><script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
 </body>
 </html>
