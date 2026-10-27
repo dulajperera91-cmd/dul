@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#16202a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dul-Shift Board">
+<script src="config.js"></script>
+<style>body{margin:0}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}</style>
+</head>
+<body>
+<title>Dul-Shift Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style id="appStyle">
+/* Layout: a sticky top bar with week controls, then a rota grid (sticky name column) with a coverage strip, or a per-day roster. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --surface-2:#eaeef2; --line:#d6dde4; --fg:#16202a; --muted:#5d6b78; --accent:#1f5fd1; --accent-ink:#ffffff; --today:#e4edfc;
+  --morning:#f6e3b4; --morning-ink:#6b4a00;
+  --mid:#cdeee3; --mid-ink:#0d5c45;
+  --aft:#d9defb; --aft-ink:#2c3a8f;
+  --split:#ead7f6; --split-ink:#5d2a83;
+  --off:#e9ecef; --off-ink:#6a7682;
+  --leave:#f8d7d7; --leave-ink:#8b2323;
+  --comp:#d4ebf8; --comp-ink:#165a80;
+  --other:#efe6da; --other-ink:#5e4a2c;
+  --danger:#b42318;
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f151b; --surface:#161e26; --surface-2:#1d2731; --line:#2b3743; --fg:#e6ecf1; --muted:#93a1ae; --accent:#6d9cf0; --accent-ink:#0b1320; --today:#1a2a40;
+  --morning:#4a3a12; --morning-ink:#f5d58a; --mid:#13403a; --mid-ink:#8fe3c6; --aft:#252d5c; --aft-ink:#b9c3ff; --split:#3b2550; --split-ink:#ddb8f6;
+  --off:#222c35; --off-ink:#8e9aa6; --leave:#4d1f22; --leave-ink:#f5b3b3; --comp:#173c52; --comp-ink:#9fd5f5; --other:#3a3022; --other-ink:#e2cba6; --danger:#f97066; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f151b; --surface:#161e26; --surface-2:#1d2731; --line:#2b3743; --fg:#e6ecf1; --muted:#93a1ae; --accent:#6d9cf0; --accent-ink:#0b1320; --today:#1a2a40;
+  --morning:#4a3a12; --morning-ink:#f5d58a; --mid:#13403a; --mid-ink:#8fe3c6; --aft:#252d5c; --aft-ink:#b9c3ff; --split:#3b2550; --split-ink:#ddb8f6;
+  --off:#222c35; --off-ink:#8e9aa6; --leave:#4d1f22; --leave-ink:#f5b3b3; --comp:#173c52; --comp-ink:#9fd5f5; --other:#3a3022; --other-ink:#e2cba6; --danger:#f97066; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1320px;margin:0 auto}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding-block:12px}
+.brand{display:flex;flex-direction:column;min-width:0;margin-right:auto}
+.brand small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:26px;line-height:1.05;letter-spacing:.01em;text-wrap:balance}
+.weeknav{display:flex;align-items:center;gap:6px}
+.weeknav select{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;max-width:58vw}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.icon{padding:7px 10px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--danger)}
+.btn[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding-block:14px 10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 14px;font-weight:500}
+.seg button[aria-selected="true"]{background:var(--fg);color:var(--bg)}
+.search{flex:1 1 180px;min-width:0;max-width:280px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.status{font-size:12px;color:var(--muted);margin-left:auto}
+.status.err{color:var(--danger)}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);padding-bottom:12px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.legend button{display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:2px 0;color:var(--muted);font-size:12px}
+.legend button:hover{color:var(--fg)}
+.legend .colbtn{border:1px solid var(--line);border-radius:6px;padding:2px 8px;background:var(--surface);color:var(--fg);font-weight:500}
+.colrow{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.colrow:first-of-type{border-top:0}
+.colrow .sw{display:inline-flex;align-items:center;justify-content:center;min-width:110px;min-height:30px;border-radius:7px;font-family:var(--f-mono);font-size:12px;padding:3px 8px}
+.colrow input[type=color]{width:44px;height:32px;border:1px solid var(--line);border-radius:7px;padding:2px;background:var(--surface)}
+.swatches{display:flex;flex-wrap:wrap;gap:6px;grid-column:1/-1}
+.swatches button{width:24px;height:24px;border-radius:6px;border:1px solid var(--line)}
+
+/* grid */
+.gridbox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table.rota{border-collapse:separate;border-spacing:0;width:100%;min-width:860px;font-variant-numeric:tabular-nums}
+.rota th,.rota td{border-bottom:1px solid var(--line);padding:0}
+.rota thead th{position:sticky;top:0;background:var(--surface);font-weight:600;text-align:center;padding:10px 4px 8px;font-size:12px}
+.rota thead th .d{display:block;font-family:var(--f-display);font-size:20px;font-weight:600;line-height:1}
+.rota thead th .w{display:block;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-size:11px}
+.rota th.today,.rota td.today{background:var(--today)}
+.rota .namecol{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left;width:220px;min-width:170px;border-right:1px solid var(--line)}
+.rota thead .namecol{z-index:3;padding-left:14px;vertical-align:bottom;color:var(--muted);font-weight:500}
+.rota tr.sec td{background:var(--surface-2);font-family:var(--f-display);font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;color:var(--muted)}
+.rota tr.sec td.namecol{background:var(--surface-2)}
+.secbar{display:flex;align-items:center;gap:8px}
+.secbar .count{font-family:var(--f-body);font-size:11px;letter-spacing:0;text-transform:none;font-weight:500}
+.secbar .tiny{margin-left:auto}
+.tiny{font-family:var(--f-body);font-size:12px;letter-spacing:0;text-transform:none;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:2px 8px;color:var(--fg);font-weight:500}
+.person{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;width:100%;border:0;background:none;text-align:left}
+.person .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.person .meta{font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.person .stack{display:flex;flex-direction:column;min-width:0;flex:1}
+.person .hrs{font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:right;white-space:nowrap}
+tr.dim td{opacity:.32}
+tr.hl td.namecol{box-shadow:inset 3px 0 0 var(--accent)}
+.cell{display:flex;align-items:center;justify-content:center;width:100%;min-height:46px;padding:4px;border:0;background:none}
+.chip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:100%;min-height:36px;border-radius:7px;padding:3px 4px;font-family:var(--f-mono);font-size:12px;line-height:1.2;font-weight:500;text-align:center}
+.chip small{font-family:var(--f-body);font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;opacity:.8}
+.k-morning{background:var(--morning);color:var(--morning-ink)}
+.k-mid{background:var(--mid);color:var(--mid-ink)}
+.k-aft{background:var(--aft);color:var(--aft-ink)}
+.k-split{background:var(--split);color:var(--split-ink)}
+.k-off{background:repeating-linear-gradient(-45deg,var(--off) 0 6px,transparent 6px 11px);color:var(--off-ink);border:1px dashed var(--line)}
+.k-leave{background:var(--leave);color:var(--leave-ink)}
+.k-comp{background:var(--comp);color:var(--comp-ink)}
+.k-other{background:var(--other);color:var(--other-ink)}
+.k-none{color:var(--muted)}
+body.editing .cell:hover .chip{outline:2px solid var(--accent);outline-offset:-2px}
+body.editing .cell{cursor:pointer}
+body:not(.editing) .cell{cursor:default}
+.rota tfoot td{background:var(--surface-2);font-size:12px;text-align:center;padding:5px 2px;font-family:var(--f-mono)}
+.rota tfoot td.namecol{background:var(--surface-2);font-family:var(--f-body);padding-left:14px;text-align:left;font-weight:500;display:flex;align-items:center;gap:8px}
+.rota tfoot tr.total td{font-weight:600;color:var(--fg);border-top:2px solid var(--line)}
+.rota tfoot .zero{color:var(--muted);opacity:.6}
+.rota tfoot tr:last-child td{border-bottom:0}
+
+/* day view */
+.dayview{display:grid;gap:14px}
+.daytabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.daytabs button{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 12px;display:flex;flex-direction:column;align-items:center;min-width:56px}
+.daytabs button b{font-family:var(--f-display);font-size:20px;line-height:1}
+.daytabs button span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.daytabs button[aria-selected="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.daytabs button[aria-selected="true"] span{color:inherit;opacity:.75}
+.daygroups{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;align-items:start}
+.grp{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.grp h3{margin:0;padding:10px 14px;font-family:var(--f-display);font-size:17px;letter-spacing:.05em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline}
+.grp h3 span{font-family:var(--f-mono);font-size:12px;letter-spacing:0}
+.grp ul{list-style:none;margin:0;padding:4px 0}
+.grp li{display:flex;justify-content:space-between;gap:10px;padding:6px 14px;border-top:1px solid var(--line)}
+.grp li:first-child{border-top:0}
+.grp li .t{font-family:var(--f-mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.grp li .s{font-size:12px;color:var(--muted)}
+
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:40px 20px;text-align:center;color:var(--muted)}
+.empty h2{font-family:var(--f-display);color:var(--fg);margin:0 0 6px;font-size:24px}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(8,14,20,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:640px){.scrim{align-items:center}}
+.sheet{background:var(--surface);color:var(--fg);width:100%;max-width:520px;max-height:86vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));box-shadow:0 10px 40px rgba(0,0,0,.25)}
+@media (min-width:640px){.sheet{border-radius:16px}}
+.sheet h2{margin:0;font-family:var(--f-display);font-size:24px;line-height:1.1}
+.sheet .sub{color:var(--muted);font-size:13px;margin:2px 0 14px}
+.sheet h4{margin:14px 0 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{border:1px solid transparent;border-radius:7px;padding:6px 9px;font-family:var(--f-mono);font-size:12px}
+.presets button.sel{outline:2px solid var(--fg);outline-offset:1px}
+.field{display:grid;gap:4px;margin-top:12px}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+.field input,.field select{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;align-items:center}
+.row .grow{margin-left:auto}
+.confirm{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--leave);color:var(--leave-ink);font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.editbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hdr,64px));z-index:4;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:8px 8px 8px 14px;margin-bottom:12px;font-weight:500}
+.editbar .btn{margin-left:auto;background:var(--accent-ink);color:var(--accent);border-color:var(--accent-ink)}
+.menu{display:grid;gap:8px;margin-top:6px}
+.menu button{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 16px;min-height:60px}
+.menu button:hover{background:var(--surface-2)}
+.menu button b{font-size:15px;font-weight:600}
+.menu button span{grid-column:1;font-size:12px;color:var(--muted)}
+.menu button i{grid-row:1/3;grid-column:2;font-style:normal;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.menu button.on i{background:var(--accent);color:var(--accent-ink)}
+.menu button.danger b{color:var(--danger)}
+.bottombar{display:none}
+.mine{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.mine .hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.mine .hd b{font-family:var(--f-display);font-size:20px;letter-spacing:.02em}
+.mine .hd span{color:var(--muted);font-size:12px}
+.mine .hd button{margin-left:auto}
+.mine .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.mine .d{display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:0}
+.mine .d small{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:center}
+.mine .d.today small{color:var(--accent);font-weight:700}
+.mine .d .chip{min-height:44px;font-size:11px;word-break:break-word}
+.pickme{margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--today);border-radius:12px;padding:10px 14px}
+.pickme .btn{margin-left:auto}
+.namelist{display:grid;gap:4px;max-height:50vh;overflow:auto}
+.namelist button{display:flex;justify-content:space-between;gap:10px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px}
+.namelist button span{color:var(--muted);font-size:12px}
+@media (max-width:640px){.mine .days{grid-template-columns:repeat(4,minmax(0,1fr))}}
+/* Saved copies opened where scripts don't run (email or chat previews): radio-button tabs switch Week / each day with CSS only. */
+.snap .sr{position:absolute;opacity:0;pointer-events:none}
+.snaptabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;position:sticky;top:0;z-index:3;background:var(--bg);padding-top:4px}
+.snaptabs label{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:58px;min-height:52px;cursor:pointer;font-weight:600}
+.snaptabs label b{font-family:var(--f-display);font-size:20px;line-height:1}
+.snaptabs label span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.snap .pane{display:none}
+#sv-w:checked~.pw,#sv-0:checked~.p0,#sv-1:checked~.p1,#sv-2:checked~.p2,#sv-3:checked~.p3,#sv-4:checked~.p4,#sv-5:checked~.p5,#sv-6:checked~.p6{display:block}
+#sv-w:checked~.snaptabs [for=sv-w],#sv-0:checked~.snaptabs [for=sv-0],#sv-1:checked~.snaptabs [for=sv-1],#sv-2:checked~.snaptabs [for=sv-2],#sv-3:checked~.snaptabs [for=sv-3],#sv-4:checked~.snaptabs [for=sv-4],#sv-5:checked~.snaptabs [for=sv-5],#sv-6:checked~.snaptabs [for=sv-6]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+#sv-w:checked~.snaptabs [for=sv-w] span,#sv-0:checked~.snaptabs [for=sv-0] span,#sv-1:checked~.snaptabs [for=sv-1] span,#sv-2:checked~.snaptabs [for=sv-2] span,#sv-3:checked~.snaptabs [for=sv-3] span,#sv-4:checked~.snaptabs [for=sv-4] span,#sv-5:checked~.snaptabs [for=sv-5] span,#sv-6:checked~.snaptabs [for=sv-6] span{color:inherit}
+.nojs .bottombar,.nojs #manageBtn,.nojs .weeknav,.nojs .seg,.nojs .search{display:none!important}
+.nojs body{padding-bottom:0}
+@media (max-width:640px){
+  .brand h1{font-size:22px}.status{width:100%;margin-left:0}
+  .seg,#manageBtn{display:none}
+  .weeknav{width:100%}.weeknav select{flex:1;max-width:none}
+  .search{max-width:none}
+  .rota{min-width:640px}
+  .rota .namecol{width:118px;min-width:118px}
+  .person{padding:6px 6px 6px 10px;gap:4px}
+  .person .nm{white-space:normal;font-size:13px;line-height:1.2}
+  .person .hrs{display:none}
+  .chip{font-size:11px}
+  body{padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+  .bottombar{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--line);
+    padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));gap:6px}
+  .bottombar button{border:0;background:none;border-radius:10px;min-height:52px;font-weight:600;font-size:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted)}
+  .bottombar button svg{width:22px;height:22px}
+  .bottombar button[aria-selected="true"]{background:var(--surface-2);color:var(--fg)}
+  .bottombar button.editing{color:var(--accent)}
+}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(16px);opacity:.6}}}
+</style>
+
+<header class="top"><div class="wrap">
+  <div class="brand"><small id="storeName">Ramada F03 · Weekly schedule</small><h1 id="weekTitle">Shift Board</h1></div>
+  <div class="weeknav">
+    <button class="btn icon" id="prevW" aria-label="Previous week">‹</button>
+    <select id="weekSel" aria-label="Choose week"></select>
+    <button class="btn icon" id="nextW" aria-label="Next week">›</button>
+  </div>
+  <button class="btn" id="manageBtn">Manage</button>
+</div></header>
+
+<main class="wrap">
+  <div class="toolbar">
+    <div class="seg" role="tablist">
+      <button role="tab" id="tabWeek" aria-selected="true">Week</button>
+      <button role="tab" id="tabDay" aria-selected="false">Day roster</button>
+    </div>
+    <input class="search" id="search" type="search" placeholder="Find a person…" aria-label="Find a person">
+    <span class="status" id="status">Connecting to schedule…</span>
+  </div>
+  <div class="legend" id="legend"></div>
+  <section id="view"><div class="empty"><h2>Loading the rota</h2>Weeks, staff and shifts appear here once the schedule store answers.</div></section>
+  <p class="note" id="foot"></p>
+</main>
+
+<nav class="bottombar" aria-label="Views">
+  <button id="bbWeek" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Week</button>
+  <button id="bbDay" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 6h5M16 10h5M17 14h4"/></svg>Day roster</button>
+  <button id="bbManage" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Manage</button>
+</nav>
+<div class="scrim" id="scrim" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+
+<script id="appScript">
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const KINDS={
+  morning:{label:'Morning',cls:'k-morning'}, mid:{label:'Mid',cls:'k-mid'}, aft:{label:'Afternoon',cls:'k-aft'},
+  split:{label:'Split',cls:'k-split'}, off:{label:'Day off',cls:'k-off'}, leave:{label:'Leave',cls:'k-leave'},
+  comp:{label:'Comp off',cls:'k-comp'}, other:{label:'Other',cls:'k-other'}
+};
+const WORKING=['morning','mid','aft','split','other'];
+const PRESETS=['9:00AM to 6:00PM','10:00AM to 7:00PM','11:00AM to 8:00PM','12:00PM to 9:00PM','1:00PM to 10:00PM','2:00PM to 11:00PM',
+  '9:00-1:00/7:00-11:00','10:00-2:00/7:00-11:00','8:00-1:00/6:00-10:00','DAY-OFF','Leave','Com Off','Stock Take'];
+
+/* ---------- shift parsing ---------- */
+function clockOf(s){ // "2:00PM" -> 14, "12:00AM" treated as noon (sheet convention)
+  const m=String(s).trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i); if(!m) return null;
+  let h=+m[1]+(m[2]?+m[2]/60:0); const ap=(m[3]||'').toLowerCase();
+  if(ap==='pm'&&h<12)h+=12;
+  return {h,ap};
+}
+function kindOf(v){
+  const s=(v||'').trim(), l=s.toLowerCase();
+  if(!s) return 'none';
+  if(/day.?off|^off$/.test(l)) return 'off';
+  if(/^leave/.test(l)) return 'leave';
+  if(/com\.?\s?off/.test(l)) return 'comp';
+  if(l.includes('/')||l==='split') return 'split';
+  const c=clockOf(s); if(!c) return 'other';
+  let h=c.h; if(!c.ap&&h<7)h+=12;
+  if(h<11) return 'morning'; if(h<12) return 'mid'; if(h<=15) return 'aft'; return 'other';
+}
+function hoursOf(v){
+  const s=(v||'').trim(), k=kindOf(s);
+  if(k==='split'){
+    const segs=s.split('/'); let tot=0;
+    for(let i=0;i<segs.length;i++){
+      const p=segs[i].split('-'); if(p.length!==2) return null;
+      let a=clockOf(p[0]), b=clockOf(p[1]); if(!a||!b) return null; a=a.h; b=b.h;
+      if(i>0){ if(a<12)a+=12; if(b<=12)b+=12; } else { if(b<=a)b+=12; }
+      if(b<=a) return null; tot+=b-a;
+    }
+    return tot;
+  }
+  if(!WORKING.includes(k)) return 0;
+  const m=s.match(/^(.+?)\s+to\s+(\S+)/i); if(!m) return null;
+  const a=clockOf(m[1]), b=clockOf(m[2]); if(!a||!b) return null;
+  const d=b.h-a.h; return d>0&&d<=16?d:null;
+}
+function fmtClock(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);const ap=hh>=12?'p':'a';let x=hh%12||12;return x+(mm?':'+String(mm).padStart(2,'0'):'')+ap;}
+function shortOf(v){
+  const s=(v||'').trim(), k=kindOf(s);
+  if(k==='off') return {top:'OFF'}; if(k==='leave') return {top:'LEAVE'}; if(k==='comp') return {top:'COMP OFF'};
+  if(k==='split'){ return {top:s.split('/').map(x=>x.split('-').map(t=>t.replace(/:00/g,'')).join('–')).join(' · '),sub:'split'}; }
+  const m=s.match(/^(.+?)\s+to\s+(\S+?)(-.*)?$/i);
+  if(m){const a=clockOf(m[1]),b=clockOf(m[2]); if(a&&b) return {top:fmtClock(a.h)+'–'+fmtClock(b.h),sub:m[3]?m[3].slice(1):''};}
+  return {top:s.length>14?s.slice(0,13)+'…':s};
+}
+
+/* ---------- dates ---------- */
+function addDays(iso,n){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function dayNum(iso){return +iso.slice(8,10);}
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function rangeLabel(iso){const e=addDays(iso,6);const a=new Date(iso+'T12:00:00'),b=new Date(e+'T12:00:00');
+  return a.getMonth()===b.getMonth()?`${a.getDate()}–${b.getDate()} ${MON[b.getMonth()]} ${b.getFullYear()}`:`${a.getDate()} ${MON[a.getMonth()]} – ${b.getDate()} ${MON[b.getMonth()]} ${b.getFullYear()}`;}
+function todayIso(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
+
+/* ---------- state ---------- */
+const S={pin:'',rev:-1,colors:{},local:false,db:null,weeks:new Map(),cur:null,view:'week',day:null,editing:false,canWrite:false,q:'',focus:null,pending:new Map(),saving:false};
+const $=id=>document.getElementById(id);
+function store(k,v){try{v===undefined?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+function recall(k){try{return localStorage.getItem(k)}catch(e){return null}}
+const API=window.SHIFT_API||'';
+async function gas(fn,...args){
+  if(!API)throw {code:'unavailable',message:'not connected'};
+  let r;try{r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args}),redirect:'follow'});}
+  catch(e){throw {code:'unavailable',message:'offline'};}
+  let j;try{j=await r.json();}catch(e){throw {code:'unavailable',message:'bad answer'};}
+  if(j.err)throw {code:/PIN/i.test(j.err)?'pin':'unavailable',message:j.err};
+  return j.ok;}
+async function writeWeek(id,body){ const r=await gas('saveWeek',S.pin,id,JSON.stringify(body)); S.rev=r; S.weeks.set(id,body); }
+async function removeWeek(id){ const r=await gas('deleteWeek',S.pin,id); S.rev=r; S.weeks.delete(id); }
+function sortedIds(){return [...S.weeks.keys()].sort();}
+function curWeek(){return S.pending.get(S.cur)||S.weeks.get(S.cur);}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function setStatus(t,err){const e=$('status');e.textContent=t;e.classList.toggle('err',!!err);}
+
+/* ---------- saving: one write at a time per week ---------- */
+let saveTimer=null;
+function mutate(fn){
+  const w=structuredClone(curWeek()); fn(w); w.updatedAt=new Date().toISOString();
+  S.pending.set(S.cur,w); render(); setStatus('Saving…');
+  clearTimeout(saveTimer); saveTimer=setTimeout(flush,450);
+}
+async function flush(){
+  if(S.saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,300);return;}
+  const entries=[...S.pending.entries()]; if(!entries.length) return;
+  S.saving=true;
+  for(const [id,body] of entries){
+    try{ await writeWeek(id,body); if(S.pending.get(id)===body) S.pending.delete(id); setStatus(S.local?'Saved in this browser only':'All changes saved'); }
+    catch(e){ handleWriteError(e); S.pending.delete(id); }
+  }
+  S.saving=false; render();
+}
+function handleWriteError(e){
+  if(e&&e.code==='pin'){S.canWrite=false;S.editing=false;S.pin='';store('f03.pin');setStatus('Your PIN didn’t work. Open Manage and log in again.',true);syncChrome();}
+  else setStatus('Couldn’t save that change. Check your connection and try again.',true);
+}
+
+/* ---------- rendering ---------- */
+const SAMPLE={morning:'9a–6p',mid:'11a–8p',aft:'2p–11p',split:'9–1 · 7–11',off:'OFF',leave:'LEAVE',comp:'COMP OFF',other:'Stock Take'};
+const SWATCHES=['#f6e3b4','#ffd6a5','#fdffb6','#caffbf','#cdeee3','#9bf6ff','#d4ebf8','#a0c4ff','#d9defb','#bdb2ff','#ead7f6','#ffc6ff','#f8d7d7','#ffadad','#efe6da','#e9ecef','#ffe066','#74c69d','#4dabf7','#f783ac'];
+function renderLegend(){
+  const can=S.canWrite;
+  $('legend').innerHTML=Object.entries(KINDS).map(([k,v])=>`<span><i class="${v.cls}"></i>${v.label}</span>`).join('');
+}
+function hexRgb(h){h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.substr(i,2),16));}
+function rgbHex(a){return '#'+a.map(x=>Math.max(0,Math.min(255,Math.round(x))).toString(16).padStart(2,'0')).join('');}
+function inkFor(h){const c=hexRgb(h);const L=(0.2126*c[0]+0.7152*c[1]+0.0722*c[2])/255;return L>0.55?rgbHex(c.map(x=>x*0.32)):rgbHex(c.map(x=>x+(255-x)*0.85));}
+const CSSVAR={morning:'morning',mid:'mid',aft:'aft',split:'split',off:'off',leave:'leave',comp:'comp',other:'other'};
+function applyColors(){
+  const r=document.documentElement.style;
+  Object.keys(CSSVAR).forEach(k=>{const c=S.colors[k];if(c&&/^#[0-9a-f]{6}$/i.test(c)){r.setProperty('--'+k,c);r.setProperty('--'+k+'-ink',inkFor(c));}else{r.removeProperty('--'+k);r.removeProperty('--'+k+'-ink');}});
+}
+let colorTimer=null;
+function saveColors(){
+  applyColors(); clearTimeout(colorTimer);
+  colorTimer=setTimeout(async()=>{
+    try{S.rev=await gas('saveColors',S.pin,JSON.stringify(S.colors));setStatus('Colours saved for everyone');}catch(e){handleWriteError(e)}
+  },400);
+}
+function colorSheet(focusKey){
+  const cur=k=>S.colors[k]||getComputedStyle(document.documentElement).getPropertyValue('--'+k).trim()||'#e9ecef';
+  const toHex=v=>/^#[0-9a-f]{6}$/i.test(v)?v:(()=>{const m=v.match(/\d+/g);return m?rgbHex(m.slice(0,3).map(Number)):'#e9ecef'})();
+  openSheet(`<h2>Shift colours</h2><p class="sub">Pick a colour for each type of shift. ${S.local?'Saved in this browser.':'Everyone sees the new colours.'}</p>
+    ${Object.entries(KINDS).map(([k,v])=>`<div class="colrow" id="row-${k}"><span>${v.label}</span><span class="sw chip ${v.cls}">${SAMPLE[k]}</span><input type="color" id="col-${k}" data-k="${k}" value="${toHex(cur(k))}" aria-label="${v.label} colour">
+      ${k===focusKey?`<div class="swatches">${SWATCHES.map(c=>`<button data-k="${k}" data-c="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}</div>`:''}</div>`).join('')}
+    <div class="row"><button class="btn primary" id="colDone">Done</button><span class="grow"></span><button class="btn" id="colReset">Reset to original colours</button></div>`,
+  sh=>{
+    sh.querySelectorAll('input[type=color]').forEach(inp=>inp.oninput=()=>{S.colors={...S.colors,[inp.dataset.k]:inp.value};saveColors();});
+    sh.querySelectorAll('.swatches button').forEach(b=>b.onclick=()=>{S.colors={...S.colors,[b.dataset.k]:b.dataset.c};sh.querySelector('#col-'+b.dataset.k).value=b.dataset.c;saveColors();});
+    sh.querySelector('#colDone').onclick=closeSheet;
+    sh.querySelector('#colReset').onclick=()=>{S.colors={};saveColors();closeSheet();};
+    if(focusKey){const el=sh.querySelector('#row-'+focusKey);el&&el.scrollIntoView({block:'center'});}
+  });
+}
+function syncChrome(){
+  const ids=sortedIds(); const sel=$('weekSel');
+  sel.innerHTML=ids.slice().reverse().map(id=>{const w=S.weeks.get(id);return `<option value="${id}">${esc(w.label||'Week')} · ${rangeLabel(id)}</option>`}).join('');
+  if(S.cur) sel.value=S.cur;
+  const i=ids.indexOf(S.cur); $('prevW').disabled=i<=0; $('nextW').disabled=i<0||i>=ids.length-1;
+  $('manageBtn').textContent=S.editing?'Manage · editing':'Manage';
+  if($('bbWeek')){$('bbWeek').setAttribute('aria-selected',S.view==='week'); $('bbDay').setAttribute('aria-selected',S.view==='day');
+  $('bbManage').classList.toggle('editing',S.editing); $('bbManage').lastChild.textContent=S.editing?'Editing':'Manage';}
+  document.documentElement.style.setProperty('--hdr',document.querySelector('header.top').offsetHeight+'px');
+  document.body.classList.toggle('editing',S.editing);
+  renderLegend();
+  const w=curWeek();
+  $('weekTitle').textContent=w?`${w.label||'Week'} · ${rangeLabel(S.cur)}`:'Shift Board';
+  $('storeName').textContent=(w&&w.title?w.title.replace(/-\s*Weekly Schedule/i,'').trim():'Ramada F03')+' · Weekly schedule';
+}
+function matches(p){const q=S.q.trim().toLowerCase();return !q||p.name.toLowerCase().includes(q)||String(p.emp).toLowerCase().includes(q);}
+
+function meKey(p){return (p.emp&&p.emp!=='Tem'?'e:'+p.emp:'n:'+p.name.trim().toLowerCase());}
+function findMe(w){const k=recall('f03.me');if(!k||!w)return null;for(const sec of w.sections)for(const p of sec.staff)if(meKey(p)===k)return {...p,sec:sec.name};return null;}
+function mineBlock(w){
+  if(S.editing) return '';
+  const me=findMe(w), t=todayIso();
+  if(!recall('f03.me')) return `<div class="pickme"><span>See your own shifts at the top. Tell the board who you are.</span><button class="btn" data-act="pickme">Pick my name</button></div>`;
+  if(!me) return `<div class="pickme"><span>You aren’t on this week’s schedule.</span><button class="btn" data-act="pickme">Change name</button></div>`;
+  return `<div class="mine"><div class="hd"><b>${esc(me.name)}</b><span>${esc(me.sec)} · your week</span><button class="tiny" data-act="pickme">Not you?</button></div><div class="days">`+
+    me.shifts.map((s,i)=>{const iso=addDays(S.cur,i),k=kindOf(s),sh=shortOf(s);return `<div class="d ${iso===t?'today':''}"><small>${DAYS[i]} ${dayNum(iso)}</small><span class="chip ${k==='none'?'k-none':KINDS[k].cls}" title="${esc(s)}">${k==='none'?'·':esc(sh.top)}${sh.sub?`<small>${esc(sh.sub)}</small>`:''}</span></div>`}).join('')+`</div></div>`;
+}
+function pickMeSheet(){
+  const w=curWeek(); if(!w) return;
+  const all=w.sections.flatMap(sec=>sec.staff.map(p=>({...p,sec:sec.name})));
+  openSheet(`<h2>Who are you?</h2><p class="sub">Your shifts will show at the top. This is remembered on this device only.</p>
+    <div class="field"><label for="meFind">Search</label><input id="meFind" placeholder="Type your name"></div>
+    <div class="namelist" id="meList" style="margin-top:10px">${all.map(p=>`<button data-k="${esc(meKey(p))}" data-n="${esc(p.name.toLowerCase())}">${esc(p.name)}<span>${esc(p.sec)}${p.emp?' · #'+esc(p.emp):''}</span></button>`).join('')}</div>
+    ${recall('f03.me')?'<div class="row"><button class="btn" id="meClear">Forget my name</button></div>':''}`,
+  sh=>{
+    sh.querySelectorAll('#meList button').forEach(b=>b.onclick=()=>{store('f03.me',b.dataset.k);closeSheet();render();});
+    sh.querySelector('#meFind').oninput=e=>{const q=e.target.value.toLowerCase();sh.querySelectorAll('#meList button').forEach(b=>b.hidden=!b.dataset.n.includes(q));};
+    const c=sh.querySelector('#meClear'); if(c) c.onclick=()=>{store('f03.me');closeSheet();render();};
+  });
+}
+function render(){
+  syncChrome();
+  const v=$('view'), w=curWeek();
+  $('tabWeek').setAttribute('aria-selected',S.view==='week'); $('tabDay').setAttribute('aria-selected',S.view==='day');
+  if(!S.db){ return; }
+  if(!w){
+    v.innerHTML=`<div class="empty"><h2>No weeks yet</h2>${S.canWrite?'Open <b>Manage</b> and choose <b>New week</b> to start the first rota.':'The schedule hasn’t been set up yet.'}</div>`;
+    return;
+  }
+  S.view==='week'?renderWeek(v,w):renderDay(v,w);
+  v.insertAdjacentHTML('afterbegin',mineBlock(w));
+  const upd=w.updatedAt?new Date(w.updatedAt):null;
+  $('foot').textContent=upd?`Last changed ${upd.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})}. Hours are the scheduled span of each shift.`:'Hours are the scheduled span of each shift.';
+}
+
+function renderWeek(v,w){
+  const t=todayIso(); const dates=DAYS.map((_,i)=>addDays(S.cur,i));
+  let h=S.editing?`<div class="editbar">Editing · tap a shift to change it<button class="btn" data-act="doneedit">Done</button></div>`:'';
+  h+=`<div class="gridbox"><table class="rota"><thead><tr><th class="namecol">Team member</th>`;
+  dates.forEach((d,i)=>h+=`<th class="${d===t?'today':''}"><span class="w">${DAYS[i]}</span><span class="d">${dayNum(d)}</span></th>`);
+  h+=`</tr></thead><tbody>`;
+  w.sections.forEach((sec,si)=>{
+    h+=`<tr class="sec"><td class="namecol" colspan="8"><div class="secbar">${esc(sec.name)} <span class="count">${sec.staff.length}</span>${S.editing?`<button class="tiny" data-act="addp" data-s="${si}">+ Person</button><button class="tiny" data-act="sec" data-s="${si}">Rename</button>`:''}</div></td></tr>`;
+    sec.staff.forEach((p,pi)=>{
+      const hrs=p.shifts.reduce((a,s)=>{const x=hoursOf(s);return x==null?a:a+x},0);
+      const days=p.shifts.filter(s=>WORKING.includes(kindOf(s))).length;
+      const cls=[!matches(p)?'dim':'', (S.focus===p.emp+'|'+p.name)||(S.q&&matches(p))?'hl':''].join(' ');
+      h+=`<tr class="${cls}"><td class="namecol"><button class="person" data-act="person" data-s="${si}" data-p="${pi}"><span class="stack"><span class="nm">${esc(p.name)}</span><span class="meta">${p.emp?'#'+esc(p.emp):'—'}</span></span><span class="hrs">${hrs?Math.round(hrs*10)/10+'h':''}<br>${days}d</span></button></td>`;
+      p.shifts.forEach((s,di)=>{
+        const k=kindOf(s), sh=shortOf(s);
+        const inner=k==='none'?`<span class="chip k-none">·</span>`:`<span class="chip ${KINDS[k].cls}">${esc(sh.top)}${sh.sub?`<small>${esc(sh.sub)}</small>`:''}</span>`;
+        h+=`<td class="${dates[di]===t?'today':''}"><button class="cell" data-act="cell" data-s="${si}" data-p="${pi}" data-d="${di}" title="${esc(p.name)} · ${DAYS[di]} · ${esc(s||'Not set')}" ${S.editing?'':'tabindex="-1"'}>${inner}</button></td>`;
+      });
+      h+='</tr>';
+    });
+  });
+  h+=`</tbody><tfoot>`;
+  const rows=[['morning','Morning'],['mid','Mid'],['aft','Afternoon'],['split','Split'],['other','Other duty']];
+  const all=w.sections.flatMap(s=>s.staff);
+  const cnt=(k,di)=>all.filter(p=>kindOf(p.shifts[di])===k).length;
+  rows.forEach(([k,l])=>{h+=`<tr><td class="namecol"><i class="chip ${KINDS[k].cls}" style="width:12px;min-height:12px;padding:0"></i>${l}</td>`;DAYS.forEach((_,di)=>{const n=cnt(k,di);h+=`<td class="${n?'':'zero'}">${n}</td>`});h+='</tr>';});
+  h+=`<tr class="total"><td class="namecol">On the floor</td>`;DAYS.forEach((_,di)=>h+=`<td>${WORKING.reduce((a,k)=>a+cnt(k,di),0)}</td>`);h+='</tr>';
+  [['off','Day off'],['leave','Leave'],['comp','Comp off']].forEach(([k,l])=>{h+=`<tr><td class="namecol"><i class="chip ${KINDS[k].cls}" style="width:12px;min-height:12px;padding:0"></i>${l}</td>`;DAYS.forEach((_,di)=>{const n=cnt(k,di);h+=`<td class="${n?'':'zero'}">${n}</td>`});h+='</tr>';});
+  h+=`</tfoot></table></div>`;
+  if(S.editing) h+=`<div class="row"><button class="btn" data-act="addsec">+ Add section</button></div>`;
+  v.innerHTML=h;
+}
+
+function startOf(s){const k=kindOf(s);if(k==='split'){const c=clockOf(s.split('-')[0]);return c?c.h:99}const c=clockOf(s);if(!c)return 99;let h=c.h;if(!c.ap&&h<7)h+=12;return h;}
+function renderDay(v,w){
+  const t=todayIso(); if(S.day==null){const i=DAYS.findIndex((_,i)=>addDays(S.cur,i)===t);S.day=i>=0?i:0;}
+  let h=`<div class="dayview"><div class="daytabs" role="tablist">`;
+  DAYS.forEach((d,i)=>{const iso=addDays(S.cur,i);h+=`<button role="tab" data-act="day" data-d="${i}" aria-selected="${i===S.day}"><span>${d}${iso===t?' · today':''}</span><b>${dayNum(iso)}</b></button>`});
+  h+=`</div>`+dayGroups(w,S.day,matches)+`</div>`;
+  v.innerHTML=h;
+}
+function dayGroups(w,day,filter){
+  let h=`<div class="daygroups">`;
+  const people=w.sections.flatMap(sec=>sec.staff.map(p=>({...p,sec:sec.name}))).filter(filter);
+  ['morning','mid','aft','split','other','off','leave','comp'].forEach(k=>{
+    const list=people.filter(p=>kindOf(p.shifts[day])===k).sort((a,b)=>startOf(a.shifts[day])-startOf(b.shifts[day]));
+    if(!list.length) return;
+    h+=`<div class="grp"><h3 class="${KINDS[k].cls}">${KINDS[k].label}<span>${list.length}</span></h3><ul>`;
+    list.forEach(p=>{const s=p.shifts[day];h+=`<li><div><div>${esc(p.name)}</div><div class="s">${esc(p.sec)}</div></div><div class="t">${WORKING.includes(k)?esc(s):''}</div></li>`});
+    h+='</ul></div>';
+  });
+  const unset=people.filter(p=>kindOf(p.shifts[day])==='none');
+  if(unset.length) h+=`<div class="grp"><h3>Not set<span>${unset.length}</span></h3><ul>${unset.map(p=>`<li><div>${esc(p.name)}</div><div class="s">${esc(p.sec)}</div></li>`).join('')}</ul></div>`;
+  return h+'</div>';
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html,bind){$('sheet').innerHTML=html;$('scrim').hidden=false;bind&&bind($('sheet'));const f=$('sheet').querySelector('input,button');f&&f.focus();}
+function closeSheet(){$('scrim').hidden=true;$('sheet').innerHTML='';}
+$('scrim').addEventListener('click',e=>{if(e.target===$('scrim'))closeSheet();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('scrim').hidden)closeSheet();});
+
+function weekPresets(w){
+  const freq=new Map(); w.sections.forEach(s=>s.staff.forEach(p=>p.shifts.forEach(x=>{if(x)freq.set(x,(freq.get(x)||0)+1)})));
+  const set=new Set(PRESETS); [...freq.keys()].forEach(k=>set.add(k));
+  const order=['morning','mid','aft','split','other','off','leave','comp'];
+  return [...set].sort((a,b)=>order.indexOf(kindOf(a))-order.indexOf(kindOf(b))||startOf(a)-startOf(b));
+}
+function cellSheet(si,pi,di){
+  const w=curWeek(), p=w.sections[si].staff[pi], cur=p.shifts[di]||'';
+  const iso=addDays(S.cur,di);
+  const pre=weekPresets(w).map(x=>`<button data-v="${esc(x)}" class="${KINDS[kindOf(x)]?.cls||''} ${x===cur?'sel':''}">${esc(x)}</button>`).join('');
+  openSheet(`<h2>${esc(p.name)}</h2><p class="sub">${DAYS[di]} ${dayNum(iso)} ${MON[+iso.slice(5,7)-1]} · now: ${esc(cur||'not set')}</p>
+    <h4>Pick a shift</h4><div class="presets">${pre}</div>
+    <div class="field"><label for="customShift">Or type a shift</label><input id="customShift" value="${esc(cur)}" placeholder="e.g. 2:00PM to 11:00PM or 9:00-1:00/7:00-11:00"></div>
+    <div class="row"><button class="btn primary" id="saveShift">Save</button><button class="btn" id="fillWeek">Use for whole week</button><span class="grow"></span><button class="btn" id="clearShift">Clear</button></div>`,
+  sh=>{
+    const setV=val=>{mutate(w=>{w.sections[si].staff[pi].shifts[di]=val});closeSheet();};
+    sh.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>setV(b.dataset.v));
+    sh.querySelector('#saveShift').onclick=()=>setV(sh.querySelector('#customShift').value.trim());
+    sh.querySelector('#customShift').onkeydown=e=>{if(e.key==='Enter')setV(e.target.value.trim())};
+    sh.querySelector('#clearShift').onclick=()=>setV('');
+    sh.querySelector('#fillWeek').onclick=()=>{const val=sh.querySelector('#customShift').value.trim();mutate(w=>{const s=w.sections[si].staff[pi].shifts;for(let i=0;i<7;i++)if(kindOf(s[i])!=='off')s[i]=val});closeSheet();};
+  });
+}
+function personSheet(si,pi){
+  const w=curWeek(), isNew=pi==null, p=isNew?{name:'',emp:'',shifts:Array(7).fill('')}:w.sections[si].staff[pi];
+  const opts=w.sections.map((s,i)=>`<option value="${i}" ${i===si?'selected':''}>${esc(s.name)}</option>`).join('');
+  openSheet(`<h2>${isNew?'Add a team member':esc(p.name)}</h2><p class="sub">${isNew?'They’ll appear in this week with no shifts set.':'Changes apply to this week only.'}</p>
+    <div class="field"><label for="pName">Name</label><input id="pName" value="${esc(p.name)}"></div>
+    <div class="field"><label for="pEmp">Employee number</label><input id="pEmp" value="${esc(p.emp)}" placeholder="e.g. 1903, or Tem for temporary"></div>
+    <div class="field"><label for="pSec">Section</label><select id="pSec">${opts}</select></div>
+    <div class="row"><button class="btn primary" id="pSave">${isNew?'Add':'Save'}</button>${isNew?'':'<button class="btn" id="pUp">Move up</button>'}<span class="grow"></span>${isNew?'':'<button class="btn danger" id="pDel">Remove</button>'}</div><div id="pConf"></div>`,
+  sh=>{
+    sh.querySelector('#pSave').onclick=()=>{
+      const name=sh.querySelector('#pName').value.trim(); if(!name){sh.querySelector('#pName').focus();return;}
+      const emp=sh.querySelector('#pEmp').value.trim(), ns=+sh.querySelector('#pSec').value;
+      mutate(w=>{let person;if(isNew)person={name,emp,shifts:Array(7).fill('')};else{person=w.sections[si].staff.splice(pi,1)[0];person.name=name;person.emp=emp;}
+        if(!isNew&&ns===si)w.sections[si].staff.splice(pi,0,person);else w.sections[ns].staff.push(person);});
+      closeSheet();
+    };
+    const up=sh.querySelector('#pUp'); if(up) up.onclick=()=>{if(pi>0)mutate(w=>{const a=w.sections[si].staff;[a[pi-1],a[pi]]=[a[pi],a[pi-1]]});closeSheet();};
+    const del=sh.querySelector('#pDel'); if(del) del.onclick=()=>{
+      sh.querySelector('#pConf').innerHTML=`<div class="confirm">Remove ${esc(p.name)} from this week?<span class="grow"></span><button class="btn danger" id="pYes">Remove</button><button class="btn" id="pNo">Keep</button></div>`;
+      sh.querySelector('#pYes').onclick=()=>{mutate(w=>w.sections[si].staff.splice(pi,1));closeSheet();};
+      sh.querySelector('#pNo').onclick=()=>sh.querySelector('#pConf').innerHTML='';
+    };
+  });
+}
+function sectionSheet(si){
+  const w=curWeek(), isNew=si==null, sec=isNew?{name:'',staff:[]}:w.sections[si];
+  openSheet(`<h2>${isNew?'Add a section':'Rename section'}</h2><p class="sub">${isNew?'For example: Accessories, Stockroom.':esc(sec.name)}</p>
+    <div class="field"><label for="sName">Section name</label><input id="sName" value="${esc(sec.name)}"></div>
+    <div class="row"><button class="btn primary" id="sSave">${isNew?'Add':'Save'}</button><span class="grow"></span>${!isNew&&!sec.staff.length?'<button class="btn danger" id="sDel">Delete empty section</button>':''}</div>`,
+  sh=>{
+    sh.querySelector('#sSave').onclick=()=>{const n=sh.querySelector('#sName').value.trim();if(!n)return;mutate(w=>{if(isNew)w.sections.push({name:n,staff:[]});else w.sections[si].name=n});closeSheet();};
+    const d=sh.querySelector('#sDel'); if(d) d.onclick=()=>{mutate(w=>w.sections.splice(si,1));closeSheet();};
+  });
+}
+function newWeekSheet(){
+  const ids=sortedIds(), last=ids[ids.length-1], src=curWeek()||(last&&S.weeks.get(last));
+  const next=last?addDays(last,7):(()=>{const d=new Date(todayIso()+'T12:00:00');d.setDate(d.getDate()-d.getDay());return d.toISOString().slice(0,10)})();
+  const num=src&&(src.label||'').match(/(\d+)/); const lbl=num?`Week ${+num[1]+1}`:'Week 1';
+  openSheet(`<h2>Start a new week</h2><p class="sub">${src?`Copies the team from ${esc(src.label||'')} (${rangeLabel(S.cur)}).`:'Starts an empty rota.'}</p>
+    <div class="field"><label for="nwLabel">Week name</label><input id="nwLabel" value="${lbl}"></div>
+    <div class="field"><label for="nwStart">Starts on (Sunday)</label><input id="nwStart" type="date" value="${next}"></div>
+    ${src?`<div class="field"><label for="nwMode">Shifts</label><select id="nwMode"><option value="copy">Copy last week’s shifts (leave cleared)</option><option value="blank">Start with blank shifts</option></select></div>`:''}
+    <div class="row"><button class="btn primary" id="nwGo">Create week</button></div><div id="nwErr"></div>`,
+  sh=>{
+    sh.querySelector('#nwGo').onclick=async()=>{
+      let start=sh.querySelector('#nwStart').value; if(!start)return;
+      const d=new Date(start+'T12:00:00'); if(d.getDay()!==0){d.setDate(d.getDate()-d.getDay());start=d.toISOString().slice(0,10);}
+      if(S.weeks.has(start)){sh.querySelector('#nwErr').innerHTML=`<div class="confirm">A week starting ${rangeLabel(start)} already exists. Pick another date.</div>`;return;}
+      const mode=sh.querySelector('#nwMode')?.value||'blank';
+      const body={label:sh.querySelector('#nwLabel').value.trim()||lbl,title:src?.title||'FO Ramada F03- Weekly Schedule',start,
+        sections:src?src.sections.map(s=>({name:s.name,staff:s.staff.map(p=>({name:p.name,emp:p.emp,shifts:mode==='copy'?p.shifts.map(x=>['leave','comp'].includes(kindOf(x))?'':x):Array(7).fill('')}))})):[{name:'Cashier',staff:[]}],
+        updatedAt:new Date().toISOString()};
+      sh.querySelector('#nwGo').disabled=true;
+      try{await writeWeek(start,body);S.cur=start;store('f03.week',start);closeSheet();setStatus('Week created');if(S.local)render();}
+      catch(e){handleWriteError(e);sh.querySelector('#nwGo').disabled=false;}
+    };
+  });
+}
+function deleteWeekSheet(){
+  const w=curWeek();
+  openSheet(`<h2>Delete ${esc(w.label)}?</h2><p class="sub">${rangeLabel(S.cur)} and every shift in it will be removed for everyone.</p>
+    <div class="row"><button class="btn danger" id="dwYes">Delete week</button><button class="btn" id="dwNo">Keep it</button></div>`,
+  sh=>{
+    sh.querySelector('#dwNo').onclick=closeSheet;
+    sh.querySelector('#dwYes').onclick=async()=>{try{const id=S.cur;await removeWeek(id);S.pending.delete(id);if(S.local){const ids=sortedIds();S.cur=ids[ids.length-1]||null;render();}closeSheet();setStatus('Week deleted');}catch(e){handleWriteError(e)}};
+  });
+}
+
+/* ---------- events ---------- */
+$('view').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const si=b.dataset.s!=null?+b.dataset.s:null, pi=b.dataset.p!=null?+b.dataset.p:null;
+  switch(b.dataset.act){
+    case 'cell': if(S.editing) cellSheet(si,pi,+b.dataset.d); else {const p=curWeek().sections[si].staff[pi];const k=p.emp+'|'+p.name;S.focus=S.focus===k?null:k;render();} break;
+    case 'person': if(S.editing) personSheet(si,pi); else {const p=curWeek().sections[si].staff[pi];const k=p.emp+'|'+p.name;S.focus=S.focus===k?null:k;render();} break;
+    case 'addp': personSheet(si,null); break;
+    case 'sec': sectionSheet(si); break;
+    case 'addsec': sectionSheet(null); break;
+    case 'doneedit': S.editing=false; render(); break;
+    case 'pickme': pickMeSheet(); break;
+    case 'day': S.day=+b.dataset.d; render(); break;
+  }
+});
+$('weekSel').onchange=e=>{S.cur=e.target.value;S.day=null;store('f03.week',S.cur);render();};
+$('prevW').onclick=()=>{const ids=sortedIds(),i=ids.indexOf(S.cur);if(i>0){S.cur=ids[i-1];S.day=null;render();}};
+$('nextW').onclick=()=>{const ids=sortedIds(),i=ids.indexOf(S.cur);if(i<ids.length-1){S.cur=ids[i+1];S.day=null;render();}};
+$('tabWeek').onclick=()=>{S.view='week';store('f03.view','week');render();};
+$('tabDay').onclick=()=>{S.view='day';store('f03.view','day');render();};
+$('search').oninput=e=>{S.q=e.target.value;render();};
+function loginSheet(){
+  openSheet(`<h2>Manager login</h2><p class="sub">Only the schedule manager has the PIN.</p>
+    <div class="field"><label for="pinIn">PIN</label><input id="pinIn" type="password" inputmode="numeric" autocomplete="current-password"></div>
+    <div class="row"><button class="btn primary" id="pinGo">Log in</button></div><div id="pinErr"></div>`,
+  sh=>{
+    const go=async()=>{const v=sh.querySelector('#pinIn').value.trim();if(!v)return;sh.querySelector('#pinGo').disabled=true;
+      let ok=false;try{ok=await gas('checkPin',v)}catch(e){}
+      if(ok){S.pin=v;S.canWrite=true;store('f03.pin',v);closeSheet();setStatus('Logged in · you can edit');render();}
+      else{sh.querySelector('#pinErr').innerHTML='<div class="confirm">That PIN isn’t right. Try again.</div>';sh.querySelector('#pinGo').disabled=false;}};
+    sh.querySelector('#pinGo').onclick=go; sh.querySelector('#pinIn').onkeydown=e=>{if(e.key==='Enter')go()};
+  });
+}
+function manageSheet(){
+  const w=curWeek(), can=S.canWrite;
+  const item=(id,title,desc,extra,cls)=>`<button id="${id}" class="${cls||''}"><b>${title}</b><span>${desc}</span>${extra||''}</button>`;
+  openSheet(`<h2>Manage</h2><p class="sub">${w?esc(w.label)+' · '+rangeLabel(S.cur):'No week selected'}</p><div class="menu">
+    ${can&&w?item('mEdit',S.editing?'Stop editing':'Edit schedule',S.editing?'Lock the grid again':'Change shifts, people and sections',`<i>${S.editing?'On':'Off'}</i>`,S.editing?'on':''):''}
+    ${can?item('mNew','New week','Start the next week from this one'):''}
+    ${!can?item('mLogin','Manager login','Enter your PIN to edit the schedule'):''}
+    ${w?item('mMe','My name','Show your own shifts at the top of the board'):''}
+    ${can?item('mColors','Shift colours','Change the colour of each shift type'):''}
+    ${can?item('mLogout','Log out','Lock editing on this device'):''}
+    ${can&&w?item('mDel','Delete this week','Remove '+esc(w.label)+' for everyone','', 'danger'):''}
+  </div>`,sh=>{
+    const on=(id,fn)=>{const b=sh.querySelector('#'+id);if(b)b.onclick=fn;};
+    on('mEdit',()=>{S.editing=!S.editing;if(S.editing)S.view='week';closeSheet();render();});
+    on('mNew',()=>{closeSheet();newWeekSheet();});
+    on('mColors',()=>{closeSheet();colorSheet(null);});
+    on('mMe',()=>{closeSheet();pickMeSheet();});
+    on('mLogin',()=>{closeSheet();loginSheet();});
+    on('mLogout',()=>{S.canWrite=false;S.editing=false;S.pin='';store('f03.pin');closeSheet();setStatus('Logged out');render();});
+    on('mDel',()=>{closeSheet();deleteWeekSheet();});
+  });
+}
+const onClick=(id,fn)=>{const el=$(id);if(el)el.onclick=fn;};
+onClick('manageBtn',manageSheet);
+onClick('bbManage',manageSheet);
+$('bbWeek')&&($('bbWeek').onclick=()=>{S.view='week';store('f03.view','week');render();window.scrollTo(0,0);});
+$('bbDay')&&($('bbDay').onclick=()=>{S.view='day';store('f03.view','day');render();window.scrollTo(0,0);});
+
+/* ---------- boot ---------- */
+renderLegend();
+S.view=recall('f03.view')||'week';
+async function loadAll(first,cached){
+  const raw=cached||await gas('getAll'); const d=JSON.parse(raw); if(!cached)store('f03.cache',raw);
+  S.rev=d.rev; S.colors=d.colors||{}; applyColors();
+  S.weeks=new Map(Object.entries(d.weeks||{}));
+  const ids=sortedIds();
+  if(first||!S.weeks.has(S.cur)){
+    const t=todayIso(), containing=ids.filter(id=>id<=t).pop();
+    S.cur=containing&&addDays(containing,6)>=t?containing:ids[ids.length-1]||null;
+  }
+  S.db=true;
+  if(!S.saving&&!S.pending.size) setStatus(S.canWrite?(S.editing?'Editing · staff see changes as you save':'Live · you can edit'):'Live · updates automatically');
+  render();
+}
+async function poll(){
+  if(document.visibilityState!=='visible'||S.saving||S.pending.size||!$('scrim').hidden) return;
+  try{const r=await gas('getRev'); if(r!==S.rev) await loadAll(false);}catch(e){}
+}
+(async()=>{
+  const pin=recall('f03.pin');
+  if(pin){try{if(await gas('checkPin',pin)){S.pin=pin;S.canWrite=true;}else store('f03.pin');}catch(e){}}
+  try{await loadAll(true);}catch(e){const c=recall('f03.cache');
+    if(c){try{await loadAll(true,c);setStatus('Offline · showing the last saved schedule',true);}catch(_){}}
+    else{$('view').innerHTML='<div class="empty"><h2>Couldn’t load the schedule</h2>Check your internet connection and reload the page.</div>';setStatus('Offline',true);}
+    setInterval(()=>{if(document.visibilityState==='visible')loadAll(false).catch(()=>{});},30000);return;}
+  setInterval(poll,30000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')poll();});
+})();
+</script>
+
+<script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+</body>
+</html>
