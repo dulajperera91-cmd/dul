@@ -375,7 +375,11 @@ async function btConnect(pick){
   if(BT.ch&&BT.dev&&BT.dev.gatt.connected&&!pick)return BT.ch;
   let dev=BT.dev;
   if(!dev&&!pick&&navigator.bluetooth.getDevices){try{const id=ls('pc.btid');const ds=await navigator.bluetooth.getDevices();dev=ds.find(x=>x.id===id)||null;}catch(e){}}
-  if(!dev||pick)dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:BT_SVCS});
+  if(pick&&BT.dev){try{if(BT.dev.gatt.connected)BT.dev.gatt.disconnect();}catch(e){}BT.dev=null;BT.ch=null;}
+  if(!dev||pick){dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:BT_SVCS});
+    // safety for shops with several printers: only print to the printer this PDT was set up with
+    const saved=ls('pc.btid');
+    if(!pick&&saved&&dev.id!==saved)throw new Error('That is not this PDT’s printer'+(ls('pc.btnick')?' ('+ls('pc.btnick')+')':'')+'. Nothing was printed. Tap Print again and pick the right one, or go to ⚙ → Connect printer to change this PDT’s printer.');}
   BT.dev=dev;ls('pc.btid',dev.id);ls('pc.btname',dev.name||'Printer');
   dev.addEventListener('gattserverdisconnected',()=>{BT.ch=null;pstat();});
   const server=await dev.gatt.connect();
@@ -390,7 +394,7 @@ async function btSend(bytes,onp){
     try{await w(part);}catch(e){if(BT.chunk>20){BT.chunk=20;continue;}throw e;}
     i+=n;if(onp)onp(i/bytes.length);if((i/BT.chunk)%16===0)await new Promise(r=>setTimeout(r,15));}
 }
-function pstat(){const e=$('pStat');if(!e)return;const nm=ls('pc.btname');e.textContent=BT.ch?'Printer connected: '+(BT.dev&&BT.dev.name||nm||'printer'):nm?'Printer: '+nm+' (connects when you print)':'No printer connected yet';}
+function pstat(){const e=$('pStat');if(!e)return;const nm=ls('pc.btnick')||ls('pc.btname');e.textContent=BT.ch?'Printer connected: '+(ls('pc.btnick')||BT.dev&&BT.dev.name||nm||'printer'):nm?'Printer: '+nm+' (connects when you print)':'No printer connected yet';}
 async function shareImage(cv,name){
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));const file=new File([blob],name+'.png',{type:'image/png'});
   if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:name});return 'shared';}catch(e){if(e&&e.name==='AbortError')return 'cancel';}}
@@ -437,11 +441,12 @@ function labelSettings(back){
   <div class="grid2"><label>Width cm<input type="number" id="sW" min="2" max="8" step="0.1" value="${cm(c.w)}"></label><label>Length cm<input type="number" id="sH" min="1" max="20" step="0.1" value="${cm(c.h)}"></label>
   <label>Gap between labels mm<input type="number" id="sG" min="0" max="10" step="0.5" value="${c.gap}"></label><label>Darkness (1–15)<input type="number" id="sD" min="1" max="15" value="${c.density}"></label>
   <label>Move right mm<input type="number" id="sX" step="0.5" value="${c.dx}"></label><label>Move down mm<input type="number" id="sY" step="0.5" value="${c.dy}"></label>
-  <label>Currency<input type="text" id="sC" value="${esc(c.cur)}"></label></div>
+  <label>Currency<input type="text" id="sC" value="${esc(c.cur)}"></label>
+  <label>Printer name for this PDT<input type="text" id="sPN" maxlength="20" placeholder="e.g. Printer 1" value="${esc(ls('pc.btnick')||'')}"></label></div>
   <label class="chk"><input type="checkbox" id="sN" ${c.name?'checked':''}> Show product name</label>
   <label class="chk"><input type="checkbox" id="sF" ${c.flip?'checked':''}> Turn print upside down</label>
   <label class="chk"><input type="checkbox" id="sQ" ${c.quick?'checked':''}> Print button prints straight away (no preview)</label>
-  <div class="box">${btOk()?(nm?'Printer: <b>'+esc(nm)+'</b>'+(BT.ch?' – connected':''):'No printer connected yet.'):'This browser has no Bluetooth printing. Use Chrome on Android, or “Send to DLabel”.'}</div>
+  <div class="box">${btOk()?(nm?'Printer: <b>'+esc(ls('pc.btnick')||nm)+'</b>'+(ls('pc.btnick')?' ('+esc(nm)+')':'')+(BT.ch?' – connected':''):'No printer connected yet.'):'This browser has no Bluetooth printing. Use Chrome on Android, or “Send to DLabel”.'}</div>
   ${btOk()?'<button class="btn light" id="sBt">Connect printer (Bluetooth)</button><button class="btn light" id="sTest">Print test label</button>':''}
   <div class="pmsg" id="pm"></div>
   <button class="btn" id="sSave">Save</button><button class="btn light" data-close>Close</button>`);
@@ -450,9 +455,10 @@ function labelSettings(back){
   $('panel').querySelectorAll('[data-sz]').forEach(b=>b.onclick=()=>{const [w,h]=b.dataset.sz.split('x');$('sW').value=cm(w);$('sH').value=cm(h);$('panel').querySelectorAll('.szb').forEach(x=>x.classList.toggle('on',x===b));});
   const read=()=>{const n=(id,d,lo,hi)=>{const v=Number($(id).value);return isFinite(v)&&$(id).value!==''?Math.min(hi,Math.max(lo,v)):d;};
     return {orient:OR,w:Math.round(n('sW',8,2,8)*10),h:Math.round(n('sH',5,1,20)*10),gap:n('sG',2,0,10),density:Math.round(n('sD',8,1,15)),dx:n('sX',0,-20,20),dy:n('sY',0,-20,20),cur:($('sC').value||'QR').slice(0,6),name:$('sN').checked,flip:$('sF').checked,quick:$('sQ').checked};};
-  $('sSave').onclick=()=>{lsave(read());pm('Saved.','ok');setTimeout(()=>{if(back&&CUR)labelSheet();else closeSheet();},400);};
-  if($('sBt'))$('sBt').onclick=async()=>{try{pm('Choose your HOIN printer in the list…','');await btConnect(true);pm('Connected to '+(BT.dev.name||'printer')+' ✓','ok');}catch(e){pm(e&&e.name==='NotFoundError'?'No printer chosen.':(e.message||String(e)),'bad');}};
-  if($('sTest'))$('sTest').onclick=async()=>{const c2=read();lsave(c2);const it=CUR||{code:'GW6440',name:'TENSAUR SPORT 2.0 CF K',was:169,now:129};
+  const nick=()=>{const v=($('sPN').value||'').trim();ls('pc.btnick',v||null);pstat();return v;};
+  $('sSave').onclick=()=>{nick();lsave(read());pm('Saved.','ok');setTimeout(()=>{if(back&&CUR)labelSheet();else closeSheet();},400);};
+  if($('sBt'))$('sBt').onclick=async()=>{try{pm('Choose your HOIN printer in the list…','');await btConnect(true);pm('Connected to '+(BT.dev.name||'printer')+' ✓  Now type a printer name (e.g. Printer 1), tap Print test label, and stick the same name on the printer.','ok');}catch(e){pm(e&&e.name==='NotFoundError'?'No printer chosen.':(e.message||String(e)),'bad');}};
+  if($('sTest'))$('sTest').onclick=async()=>{const c2=read();lsave(c2);const nk=nick();const it={code:nk||'TEST LABEL',name:'This PDT prints here',was:169,now:129};
     try{pm('Printing test label…','');await btConnect(false);await btSend(tsplBytes(drawLabel(it,c2),c2,1));pm('Test label printed ✓  If it is not centred, change “Move right / down”.','ok');}catch(e){pm(e&&e.name==='NotFoundError'?'No printer chosen.':(e.message||String(e)),'bad');}};
 }
 
