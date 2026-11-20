@@ -149,14 +149,20 @@ let busy=false;
 let API='';try{API=localStorage.getItem('pc.api')||'';}catch(e){}if(!API)API=window.PC_API||'';
 async function gas(fn,...args){
   if(!API)throw new Error('The app is not connected to the price list yet. Tap ⚙ to connect.');
-  let r;try{r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args}),redirect:'follow'});}
-  catch(e){throw new Error('No internet connection.');}
-  let j;try{j=await r.json();}catch(e){throw new Error('The server did not answer correctly. Check the Apps Script deployment (Who has access: Anyone).');}
-  if(j.err)throw new Error(j.err);return j.ok;}
+  const ac=typeof AbortController!=='undefined'?new AbortController():null,limit=fn==='getChunk'||fn==='uploadChunk'||fn==='finishUpload'?90000:30000;
+  const tm=setTimeout(()=>{if(ac)ac.abort();},limit);
+  try{
+  let r;try{r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args}),redirect:'follow',signal:ac?ac.signal:undefined});}
+  catch(e){throw new Error(e&&e.name==='AbortError'?'The price list server (Google Apps Script) did not answer in '+(limit/1000)+' seconds. Check the internet and try again.':'No internet connection, or the price list server could not be reached.');}
+  let j;try{j=await r.json();}catch(e){throw new Error(e&&e.name==='AbortError'?'The price list server took too long to answer.':'The price list server did not answer correctly. In Apps Script check Deploy → Manage deployments: Web app, Who has access: Anyone.');}
+  if(j.err)throw new Error(j.err);return j.ok;}finally{clearTimeout(tm);}}
 
 /* ---------- device cache (IndexedDB) ---------- */
-function idb(){return new Promise((ok,no)=>{try{const r=indexedDB.open('pricecheck',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);}catch(e){no(e);}});}
-async function cacheGet(k){try{const db=await idb();return await new Promise(ok=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null);});}catch(e){return null;}}
+let IDB=null;
+function idb(){if(IDB)return Promise.resolve(IDB);return new Promise((ok,no)=>{const t=setTimeout(()=>no(new Error('storage timeout')),4000);
+  try{const r=indexedDB.open('pricecheck',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>{clearTimeout(t);IDB=r.result;IDB.onversionchange=()=>{try{IDB.close();}catch(e){}IDB=null;};ok(IDB);};r.onerror=()=>{clearTimeout(t);no(r.error);};r.onblocked=()=>{clearTimeout(t);no(new Error('storage blocked'));};}catch(e){clearTimeout(t);no(e);}});}
+const within=(p,ms,v)=>Promise.race([p,new Promise(r=>setTimeout(()=>r(v),ms))]);
+async function cacheGet(k){try{const db=await idb();return await within(new Promise(ok=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null);}),6000,null);}catch(e){return null;}}
 async function cacheSet(k,v){try{const db=await idb();await new Promise(ok=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=ok;t.onerror=ok;});}catch(e){}}
 async function cacheDel(k){try{const db=await idb();await new Promise(ok=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=ok;t.onerror=ok;});}catch(e){}}
 function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){return null;}}
@@ -192,6 +198,7 @@ function loading(on,text,pct){$('load').classList.toggle('on',!!on);if(text)$('l
 async function sync(force){
   if(busy)return;busy=true;
   try{
+    if(!L)$('foot').textContent='Connecting to the price list…';
     const meta=await gas('getMeta');META=meta;
     if(!meta){L=null;await cacheDel('list');clearBoard();foot();showMsg('No price list yet. Tap ⚙ to upload the Excel file.','bad');return;}
     if(L&&L.meta&&L.meta.ver===meta.ver&&!force){L.meta=meta;foot();return;}
@@ -629,7 +636,8 @@ async function upload(){
   selQ();
 })();
 /* ---------- installable app ---------- */
-if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{});let rl=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rl)return;rl=true;location.reload();}));}
+if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+{let rl=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rl)return;rl=true;location.reload();});}}
 let instEv=null;
 if(!(matchMedia('(display-mode: standalone)').matches||navigator.standalone))$('install').style.display='';
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e;});
