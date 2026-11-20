@@ -296,7 +296,7 @@ function drawLabel(it,c){
   rows.push({t:it.code,s:H*0.11,b:false});
   if(c.name&&it.name)rows.push({t:it.name,s:H*0.085,b:false,min:H*0.05});
   rows.push({line:1});
-  if(disc){rows.push({t:`WAS: ${c.cur} ${price2(it.was)}`,s:H*0.13,b:false,strike:1});rows.push({line:1});rows.push({t:`NOW: ${c.cur} ${price2(it.now)}`,s:H*0.15,b:true});}
+  if(disc){rows.push({t:`WAS: ${c.cur} ${price2(it.was)}`,s:H*0.13,b:true,strike:1});rows.push({line:1});rows.push({t:`NOW: ${c.cur} ${price2(it.now)}`,s:H*0.15,b:true});}
   else rows.push({t:`PRICE: ${c.cur} ${price2(it.now!=null?it.now:it.was)}`,s:H*0.16,b:true});
   rows.push({line:1});
   rows.forEach(r=>{if(!r.line)r.s=fit(r.t,Math.round(r.s),r.b,r.min);});
@@ -304,9 +304,12 @@ function drawLabel(it,c){
   let y=m*0.6+sp;
   rows.forEach(r=>{
     if(r.line){g.fillRect(m,Math.round(y),inner,lw);y+=lw+sp;return;}
-    const h=r.s*1.15,cy=y+h/2;g.font=`${r.b?'bold ':''}${r.s}px ${FF}`;g.fillText(r.t,W/2,cy);
-    if(r.strike){const tw=g.measureText(r.t).width,x0=W/2-tw/2-4,x1=W/2+tw/2+4;g.lineWidth=Math.max(2,r.s*0.07);
-      g.beginPath();g.moveTo(x0,cy-r.s*0.22);g.lineTo(x1,cy+r.s*0.22);g.stroke();g.beginPath();g.moveTo(x0,cy+r.s*0.14);g.lineTo(x1,cy-r.s*0.14);g.stroke();}
+    const h=r.s*1.15,cy=y+h/2;g.font=`${r.b?'bold ':''}${r.s}px ${FF}`;
+    if(r.strike){const tw=g.measureText(r.t).width,ext=Math.max(14,r.s*0.45),x0=Math.max(2,W/2-tw/2-ext),x1=Math.min(W-2,W/2+tw/2+ext);g.lineWidth=3;
+      // wide cross drawn first, then the price on top with a white edge, so every number stays clear
+      g.beginPath();g.moveTo(x0,cy-r.s*0.5);g.lineTo(x1,cy+r.s*0.5);g.stroke();g.beginPath();g.moveTo(x0,cy+r.s*0.5);g.lineTo(x1,cy-r.s*0.5);g.stroke();
+      g.save();g.strokeStyle='#fff';g.lineJoin='round';g.lineWidth=Math.max(3,r.s*0.07);g.strokeText(r.t,W/2,cy);g.restore();}
+    g.fillText(r.t,W/2,cy);
     y+=h+sp;});
   // make it pure black & white (thermal printers have no grey)
   const im=g.getImageData(0,0,W,H),d=im.data;for(let i=0;i<d.length;i+=4){const v=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000<150?0:255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;}g.putImageData(im,0,0);
