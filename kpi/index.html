@@ -1021,6 +1021,6 @@ B.onclick=async()=>{if(ev){ev.prompt();try{const c=await ev.userChoice;if(c&&c.o
    :android?'<li>Tap the <b>⋮</b> menu at the top right of Chrome.</li><li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li><li>Tap <b>Install</b> / <b>Add</b>. The <b>Dul KPI</b> icon appears on your home screen.</li>'
    :'<li>Click the <b>install icon</b> at the right end of Chrome’s address bar (a small screen with an arrow), <b>or</b></li><li>Click <b>⋮ → Cast, save and share → Install page as app</b>.</li><li>Click <b>Install</b>.</li>';
   H.hidden=false;};
-document.getElementById('instOk').onclick=()=>{H.hidden=true;};H.onclick=e=>{if(e.target===H)H.hidden=true;};})();</script><script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+document.getElementById('instOk').onclick=()=>{H.hidden=true;};H.onclick=e=>{if(e.target===H)H.hidden=true;};})();</script><script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{});let rl=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rl)return;rl=true;location.reload();}));}</script>
 </body>
 </html>

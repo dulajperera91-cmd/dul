@@ -629,7 +629,7 @@ async function upload(){
   selQ();
 })();
 /* ---------- installable app ---------- */
-if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
+if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{});let rl=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rl)return;rl=true;location.reload();}));}
 let instEv=null;
 if(!(matchMedia('(display-mode: standalone)').matches||navigator.standalone))$('install').style.display='';
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e;});
