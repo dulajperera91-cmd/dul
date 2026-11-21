@@ -165,6 +165,15 @@ body:not(.editing) .cell{cursor:default}
 .presets{display:flex;flex-wrap:wrap;gap:6px}
 .presets button{border:1px solid transparent;border-radius:7px;padding:6px 9px;font-family:var(--f-mono);font-size:12px}
 .presets button.sel{outline:2px solid var(--fg);outline-offset:1px}
+.codelist{display:flex;flex-direction:column;gap:6px;margin:8px 0 4px;max-height:52vh;overflow:auto}
+.coderow{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface)}
+.coderow .chip{font-family:var(--f-mono);font-size:12px;width:auto;min-height:30px;padding:5px 10px;flex-direction:row}
+.coderow .grow{flex:1}
+.ib{width:34px;height:32px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--fg);font-size:15px;cursor:pointer}
+.ib:disabled{opacity:.3}.ib.del{color:#c62828}
+.codemsg{min-height:18px;font-size:13px;margin:4px 0}
+.linkbtn{border:0;background:none;color:inherit;text-decoration:underline;font-weight:600;cursor:pointer;padding:0 4px}
+.hint{display:block;color:var(--muted);font-size:12px;margin-top:4px}
 .field{display:grid;gap:4px;margin-top:12px}
 .field label{font-size:12px;color:var(--muted);font-weight:500}
 .field input,.field select{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
@@ -403,7 +412,7 @@ function colorSheet(focusKey){
     sh.querySelectorAll('input[type=color]').forEach(inp=>inp.oninput=()=>{S.colors={...S.colors,[inp.dataset.k]:inp.value};saveColors();});
     sh.querySelectorAll('.swatches button').forEach(b=>b.onclick=()=>{S.colors={...S.colors,[b.dataset.k]:b.dataset.c};sh.querySelector('#col-'+b.dataset.k).value=b.dataset.c;saveColors();});
     sh.querySelector('#colDone').onclick=closeSheet;
-    sh.querySelector('#colReset').onclick=()=>{S.colors={};saveColors();closeSheet();};
+    sh.querySelector('#colReset').onclick=()=>{S.colors=Array.isArray(S.colors._codes)?{_codes:S.colors._codes}:{};saveColors();closeSheet();};
     if(focusKey){const el=sh.querySelector('#row-'+focusKey);el&&el.scrollIntoView({block:'center'});}
   });
 }
@@ -524,16 +533,55 @@ function closeSheet(){$('scrim').hidden=true;$('sheet').innerHTML='';}
 $('scrim').addEventListener('click',e=>{if(e.target===$('scrim'))closeSheet();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('scrim').hidden)closeSheet();});
 
-function weekPresets(w){
-  const freq=new Map(); w.sections.forEach(s=>s.staff.forEach(p=>p.shifts.forEach(x=>{if(x)freq.set(x,(freq.get(x)||0)+1)})));
-  const set=new Set(PRESETS); [...freq.keys()].forEach(k=>set.add(k));
-  const order=['morning','mid','aft','split','other','off','leave','comp'];
-  return [...set].sort((a,b)=>order.indexOf(kindOf(a))-order.indexOf(kindOf(b))||startOf(a)-startOf(b));
+/* shift codes: editable list kept with the colour settings (key _codes), so everyone shares it */
+function codesList(){return Array.isArray(S.colors&&S.colors._codes)?S.colors._codes.slice():PRESETS.slice();}
+function weekExtras(w){ // codes typed in this week that are not in the list
+  const list=new Set(codesList()),out=new Set();w.sections.forEach(s=>s.staff.forEach(p=>p.shifts.forEach(x=>{if(x&&!list.has(x))out.add(x);})));return [...out];
+}
+let codesTimer=null;
+function saveCodes(list){
+  S.colors={...S.colors,_codes:list};clearTimeout(codesTimer);
+  if(S.local){setStatus('Shift codes saved');return;}
+  codesTimer=setTimeout(async()=>{try{S.rev=await gas('saveColors',S.pin,JSON.stringify(S.colors));setStatus('Shift codes saved for everyone');}catch(e){handleWriteError(e)}},300);
+}
+function codesSheet(msg){
+  const list=codesList();
+  const rows=list.map((c,i)=>`<div class="coderow"><span class="chip ${KINDS[kindOf(c)]?.cls||'k-other'}">${esc(c)}</span><span class="grow"></span>
+    <button class="ib" data-up="${i}" ${i?'':'disabled'} title="Move up">↑</button><button class="ib" data-dn="${i}" ${i<list.length-1?'':'disabled'} title="Move down">↓</button>
+    <button class="ib" data-ed="${i}" title="Change">✎</button><button class="ib del" data-rm="${i}" title="Delete">✕</button></div>`).join('');
+  openSheet(`<h2>Shift codes</h2><p class="sub">These are the shifts in the “Pick a shift” list. Changes are saved for everyone. Shifts already on the schedule are not changed.</p>
+    <div class="field"><label for="newCode">Add a shift code</label><div class="row" style="margin:0"><input id="newCode" placeholder="e.g. 3:00PM to 11:00PM, 9:00-1:00/6:00-10:00, Training" style="flex:1"><button class="btn primary" id="addCode">Add</button></div>
+    <small class="hint">Times like <b>2:00PM to 11:00PM</b> are coloured automatically (morning, mid, afternoon). Use “/” for a split shift. Words like DAY-OFF, Leave, Com Off are recognised too.</small></div>
+    <div id="codeMsg" class="codemsg">${msg||''}</div>
+    <div class="codelist">${rows||'<p class="sub">No shift codes. Add one above.</p>'}</div>
+    <div class="row"><span class="grow"></span><button class="btn" id="codesReset">Back to the original list</button><button class="btn primary" id="codesDone">Done</button></div>`,
+  sh=>{
+    const go=(l,m)=>{saveCodes(l);codesSheet(m);};
+    const add=()=>{const v=sh.querySelector('#newCode').value.trim().replace(/\s+/g,' ');if(!v)return;const l=codesList();
+      if(l.some(x=>x.toLowerCase()===v.toLowerCase())){sh.querySelector('#codeMsg').textContent='“'+v+'” is already in the list.';return;}
+      l.push(v);go(l,'Added “'+esc(v)+'”.');};
+    sh.querySelector('#addCode').onclick=add;sh.querySelector('#newCode').onkeydown=e=>{if(e.key==='Enter')add();};
+    sh.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{const l=codesList(),i=+b.dataset.up;[l[i-1],l[i]]=[l[i],l[i-1]];go(l);});
+    sh.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{const l=codesList(),i=+b.dataset.dn;[l[i+1],l[i]]=[l[i],l[i+1]];go(l);});
+    sh.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{const l=codesList(),i=+b.dataset.rm,old=l.slice(),v=l.splice(i,1)[0];
+      saveCodes(l);codesSheet('Deleted “'+esc(v)+'”. <button class="linkbtn" id="undoCode">Undo</button>');
+      const u=$('sheet').querySelector('#undoCode');if(u)u.onclick=()=>go(old,'Brought back “'+esc(v)+'”.');});
+    sh.querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ed,l=codesList(),row=b.closest('.coderow');
+      row.innerHTML=`<input class="edcode" value="${esc(l[i])}" style="flex:1"><button class="btn primary" data-sv="1">Save</button><button class="btn" data-cx="1">Cancel</button>`;
+      const inp=row.querySelector('input');inp.focus();inp.select();
+      const sv=()=>{const v=inp.value.trim().replace(/\s+/g,' ');if(!v)return;if(l.some((x,j)=>j!==i&&x.toLowerCase()===v.toLowerCase())){sh.querySelector('#codeMsg').textContent='“'+v+'” is already in the list.';return;}const o=l[i];l[i]=v;go(l,'Changed “'+esc(o)+'” to “'+esc(v)+'”.');};
+      row.querySelector('[data-sv]').onclick=sv;inp.onkeydown=e=>{if(e.key==='Enter')sv();};row.querySelector('[data-cx]').onclick=()=>codesSheet();});
+    sh.querySelector('#codesReset').onclick=()=>{const b=sh.querySelector('#codesReset');if(!b.dataset.sure){b.dataset.sure=1;b.textContent='Press again to reset the list';return;}
+      const c={...S.colors};delete c._codes;S.colors=c;saveCodes(PRESETS.slice());codesSheet('The original list is back.');};
+    sh.querySelector('#codesDone').onclick=closeSheet;
+  });
 }
 function cellSheet(si,pi,di){
   const w=curWeek(), p=w.sections[si].staff[pi], cur=p.shifts[di]||'';
   const iso=addDays(S.cur,di);
-  const pre=weekPresets(w).map(x=>`<button data-v="${esc(x)}" class="${KINDS[kindOf(x)]?.cls||''} ${x===cur?'sel':''}">${esc(x)}</button>`).join('');
+  const btn=x=>`<button data-v="${esc(x)}" class="${KINDS[kindOf(x)]?.cls||''} ${x===cur?'sel':''}">${esc(x)}</button>`;
+  const ex=weekExtras(w);
+  const pre=codesList().map(btn).join('')+(ex.length?`</div><h4 style="margin-top:10px">Also used this week</h4><div class="presets">${ex.map(btn).join('')}`:'');
   openSheet(`<h2>${esc(p.name)}</h2><p class="sub">${DAYS[di]} ${dayNum(iso)} ${MON[+iso.slice(5,7)-1]} · now: ${esc(cur||'not set')}</p>
     <h4>Pick a shift</h4><div class="presets">${pre}</div>
     <div class="field"><label for="customShift">Or type a shift</label><input id="customShift" value="${esc(cur)}" placeholder="e.g. 2:00PM to 11:00PM or 9:00-1:00/7:00-11:00"></div>
@@ -656,6 +704,7 @@ function manageSheet(){
     ${can?item('mNew','New week','Start the next week from this one'):''}
     ${!can?item('mLogin','Manager login','Enter your PIN to edit the schedule'):''}
     ${w?item('mMe','My name','Show your own shifts at the top of the board'):''}
+    ${can?item('mCodes','Shift codes','Add, change or delete the shifts in the picker'):''}
     ${can?item('mColors','Shift colours','Change the colour of each shift type'):''}
     ${can?item('mLogout','Log out','Lock editing on this device'):''}
     ${can&&w?item('mDel','Delete this week','Remove '+esc(w.label)+' for everyone','', 'danger'):''}
@@ -663,6 +712,7 @@ function manageSheet(){
     const on=(id,fn)=>{const b=sh.querySelector('#'+id);if(b)b.onclick=fn;};
     on('mEdit',()=>{S.editing=!S.editing;if(S.editing)S.view='week';closeSheet();render();});
     on('mNew',()=>{closeSheet();newWeekSheet();});
+    on('mCodes',()=>{closeSheet();codesSheet();});
     on('mColors',()=>{closeSheet();colorSheet(null);});
     on('mMe',()=>{closeSheet();pickMeSheet();});
     on('mLogin',()=>{closeSheet();loginSheet();});
@@ -712,6 +762,7 @@ async function poll(){
 #instBtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;background:#16202a;color:#fff;border:0;border-radius:999px;padding:12px 22px;font:600 16px 'IBM Plex Sans',Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer}
 @media (min-width:900px){#instBtn{left:auto;right:24px;transform:none;bottom:24px}}
 @media (display-mode:standalone){#instBtn{display:none!important}}
+#scrim:not([hidden]) ~ #instBtn{display:none}
 #instHelp{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;display:flex;align-items:flex-end;justify-content:center}
 #instHelp[hidden]{display:none}
 #instHelp .box{background:#fff;color:#16202a;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));font:16px/1.5 'IBM Plex Sans',Arial,sans-serif}
