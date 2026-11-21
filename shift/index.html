@@ -696,6 +696,86 @@ function loginSheet(){
     sh.querySelector('#pinGo').onclick=go; sh.querySelector('#pinIn').onkeydown=e=>{if(e.key==='Enter')go()};
   });
 }
+
+/* ---------- weekly Excel download (same layout as the store's schedule sheet) ---------- */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zip(files){const enc=new TextEncoder();const chunks=[];let off=0;const cen=[];
+  const u16=v=>[v&255,(v>>8)&255],u32=v=>[v&255,(v>>8)&255,(v>>16)&255,(v>>>24)&255];
+  files.forEach(([name,str])=>{const data=enc.encode(str),nm=enc.encode(name),crc=crc32(data);
+    const head=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(nm.length),...u16(0)]);
+    chunks.push(head,nm,data);cen.push({nm,crc,size:data.length,off});off+=head.length+nm.length+data.length;});
+  const cstart=off;cen.forEach(c=>{const h=new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c.crc),...u32(c.size),...u32(c.size),...u16(c.nm.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(c.off)]);chunks.push(h,c.nm);off+=h.length+c.nm.length;});
+  chunks.push(new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(cen.length),...u16(cen.length),...u32(off-cstart),...u32(cstart),...u16(0)]));
+  const out=new Uint8Array(chunks.reduce((a,c)=>a+c.length,0));let p=0;chunks.forEach(c=>{out.set(c,p);p+=c.length;});return out;}
+
+function weekSheetXml(id,w){
+  const x=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'');
+  const L=i=>String.fromCharCode(65+i);const rows=[];const merges=[];
+  const put=(r,c,v,st)=>{(rows[r]=rows[r]||[])[c]={v,st};};
+  const title=(w.title||'Ramada F03- Weekly Schedule').trim();
+  put(1,0,title,1);merges.push('A1:L1');
+  put(2,0,(w.label?w.label+' · ':'')+rangeLabel(id),2);merges.push('A2:L2');
+  for(let i=0;i<7;i++){const d=addDays(id,i);put(3,3+i,`${+d.slice(8,10)} ${MON[+d.slice(5,7)-1]} ${d.slice(0,4)}`,12);}
+  ['SR','EMP#','Name',...DAYS,'Hours','Days'].forEach((h,i)=>put(4,i,h,3));
+  const st=k=>k==='off'?6:k==='leave'?7:k==='comp'?8:k==='split'?13:5;
+  let r=5,sr=0;const counts=new Map(),kc={off:Array(7).fill(0),leave:Array(7).fill(0),comp:Array(7).fill(0)},work=Array(7).fill(0);
+  w.sections.forEach(sec=>{
+    put(r,0,'',9);put(r,1,sec.name||'',9);for(let c=2;c<12;c++)put(r,c,'',9);merges.push(`B${r}:L${r}`);r++;
+    sec.staff.forEach(p=>{sr++;let hrs=0,days=0,hk=true;
+      put(r,0,sr,10);put(r,1,/^\d+$/.test(String(p.emp||'').trim())?+p.emp:(p.emp||''),10);put(r,2,p.name||'',4);
+      for(let d=0;d<7;d++){const v=(p.shifts[d]||'').trim(),kd=kindOf(v);put(r,3+d,v,st(kd));
+        if(!v)continue;
+        if(kc[kd])kc[kd][d]++;
+        else if(WORKING.includes(kd)){work[d]++;days++;const h=hoursOf(v);if(h==null)hk=false;else hrs+=h;
+          if(!counts.has(v))counts.set(v,Array(7).fill(0));counts.get(v)[d]++;}}
+      put(r,10,hk?Math.round(hrs*10)/10:'',10);put(r,11,days,10);r++;});
+  });
+  r++;
+  put(r,1,'Shift count',3);put(r,2,'Shift',3);DAYS.forEach((d,i)=>put(r,3+i,d,3));put(r,10,'',3);put(r,11,'',3);r++;
+  const order=['morning','mid','aft','split','other'];
+  [...counts.keys()].sort((a,b)=>order.indexOf(kindOf(a))-order.indexOf(kindOf(b))||startOf(a)-startOf(b)).forEach(v=>{
+    put(r,1,KINDS[kindOf(v)].label,4);put(r,2,v,st(kindOf(v)));counts.get(v).forEach((n,i)=>put(r,3+i,n,10));r++;});
+  [['off','OFF','DAY OFF'],['leave','Leave','Leave'],['comp','Comp off','Com Off']].forEach(([k,a,b])=>{put(r,1,a,st(k));put(r,2,b,st(k));kc[k].forEach((n,i)=>put(r,3+i,n,k==='off'?6:10));r++;});
+  put(r,1,'Working',11);put(r,2,'Staff working',11);work.forEach((n,i)=>put(r,3+i,n,11));r++;
+  put(r,1,'Total',11);put(r,2,'All staff',11);for(let i=0;i<7;i++)put(r,3+i,work[i]+kc.off[i]+kc.leave[i]+kc.comp[i],11);
+  const cell=(v,ri,ci,s)=>{const ref=L(ci)+ri;if(v===''||v==null)return `<c r="${ref}" s="${s||0}"/>`;
+    if(typeof v==='number')return `<c r="${ref}" s="${s||0}"><v>${v}</v></c>`;return `<c r="${ref}" t="inlineStr" s="${s||0}"><is><t xml:space="preserve">${x(v)}</t></is></c>`;};
+  let sd='';rows.forEach((row,ri)=>{if(!row)return;sd+=`<row r="${ri}"${ri===1?' ht="24" customHeight="1"':''}>${row.map((c,ci)=>c?cell(c.v,ri,ci,c.st):'').join('')}</row>`;});
+  const widths=[5,9,26,20,20,20,20,20,20,20,8,7];
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((v,i)=>`<col min="${i+1}" max="${i+1}" width="${v}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData><mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells><pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+}
+function weekXlsx(ids){
+  const x=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const used=new Set();const names=ids.map(id=>{const w=S.weeks.get(id)||curWeek();let n=((w&&w.label)||id).replace(/[\\\/?*\[\]:]/g,' ').slice(0,31).trim()||id;let m=n,k=2;while(used.has(m))m=(n.slice(0,27)+' ('+(k++)+')');used.add(m);return m;});
+  const fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>',...['FF92D050','FFFFFF00','FFF8CBAD','FFBDD7EE','FFD9D9D9','FFF2F2F2','FFE4DFEC'].map(c=>`<fill><patternFill patternType="solid"><fgColor rgb="${c}"/><bgColor indexed="64"/></patternFill></fill>`)];
+  const B='<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border>';
+  const xf=(font,fill,border,center)=>`<xf numFmtId="0" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0"${font?' applyFont="1"':''}${fill?' applyFill="1"':''}${border?' applyBorder="1"':''}${center?' applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>':' applyAlignment="1"><alignment vertical="center"/></xf>'}`;
+  const xfs=[xf(0,0,0,0),xf(2,0,0,1),xf(3,0,0,1),xf(1,2,1,1),xf(0,0,1,0),xf(0,0,1,1),xf(1,3,1,1),xf(0,4,1,1),xf(0,5,1,1),xf(1,6,1,0),xf(0,0,1,1),xf(1,7,1,1),xf(1,0,1,1),xf(0,8,1,1)];
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="16"/><name val="Calibri"/></font><font><i/><sz val="11"/><color rgb="FF555555"/><name val="Calibri"/></font></fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${B}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const files=[['[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${ids.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`],
+    ['_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ['xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${names.map((n,i)=>`<sheet name="${x(n)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`],
+    ['xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${ids.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${ids.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ['xl/styles.xml',styles]];
+  ids.forEach((id,i)=>files.push([`xl/worksheets/sheet${i+1}.xml`,weekSheetXml(id,id===S.cur?curWeek():S.weeks.get(id))]));
+  return zip(files);
+}
+function saveFile(bytes,name){const url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);}
+function excelSheet(){
+  const w=curWeek();if(!w)return;const ids=sortedIds();
+  openSheet(`<h2>Download Excel</h2><p class="sub">Same layout as the schedule sheet: staff by section, Sun–Sat shifts, hours, and the shift count for each day.</p>
+    <div class="menu"><button id="xThis"><b>This week</b><span>${esc(w.label||'')} · ${rangeLabel(S.cur)}</span></button>
+    ${ids.length>1?`<button id="xAll"><b>All weeks</b><span>${ids.length} weeks, one sheet each</span></button>`:''}</div><p class="sub" id="xMsg"></p>`,
+  sh=>{
+    const go=(list,name)=>{try{saveFile(weekXlsx(list),name);sh.querySelector('#xMsg').textContent='Downloaded: '+name;}catch(e){sh.querySelector('#xMsg').textContent='Could not make the file: '+e.message;}};
+    const r=rangeLabel(S.cur).replace(/[^\w\s–-]/g,'').replace(/–/g,'-');
+    sh.querySelector('#xThis').onclick=()=>go([S.cur],`F03 Schedule ${(w.label||'').replace(/[\\\/:*?"<>|]/g,'')} (${r}).xlsx`.replace(/\s+/g,' '));
+    const all=sh.querySelector('#xAll');if(all)all.onclick=()=>go(ids,`F03 Schedule all weeks (${new Date().toISOString().slice(0,10)}).xlsx`);
+  });
+}
+
 function manageSheet(){
   const w=curWeek(), can=S.canWrite;
   const item=(id,title,desc,extra,cls)=>`<button id="${id}" class="${cls||''}"><b>${title}</b><span>${desc}</span>${extra||''}</button>`;
@@ -704,6 +784,7 @@ function manageSheet(){
     ${can?item('mNew','New week','Start the next week from this one'):''}
     ${!can?item('mLogin','Manager login','Enter your PIN to edit the schedule'):''}
     ${w?item('mMe','My name','Show your own shifts at the top of the board'):''}
+    ${w?item('mExcel','Download Excel','Save this week (or all weeks) as an Excel file'):''}
     ${can?item('mCodes','Shift codes','Add, change or delete the shifts in the picker'):''}
     ${can?item('mColors','Shift colours','Change the colour of each shift type'):''}
     ${can?item('mLogout','Log out','Lock editing on this device'):''}
@@ -715,6 +796,7 @@ function manageSheet(){
     on('mCodes',()=>{closeSheet();codesSheet();});
     on('mColors',()=>{closeSheet();colorSheet(null);});
     on('mMe',()=>{closeSheet();pickMeSheet();});
+    on('mExcel',()=>{closeSheet();excelSheet();});
     on('mLogin',()=>{closeSheet();loginSheet();});
     on('mLogout',()=>{S.canWrite=false;S.editing=false;S.pin='';store('f03.pin');closeSheet();setStatus('Logged out');render();});
     on('mDel',()=>{closeSheet();deleteWeekSheet();});
