@@ -343,11 +343,12 @@ function designLabel(it,c,W,H){
       g.fillText(P(it.was),W/2,wy);
       // two clean crossing lines over the old price, like the shelf tags
       g.lineWidth=2;g.beginPath();g.moveTo(x0,wy-ws*0.42);g.lineTo(x1,wy+ws*0.42);g.stroke();g.beginPath();g.moveTo(x0,wy+ws*0.42);g.lineTo(x1,wy-ws*0.42);g.stroke();
-      line(H*0.392+off);
-      // more space between the WAS and NOW parts
-      text('NOW',H*0.475+off,H*0.031,true,SANS);
-      text(P(it.now),H*0.578+off,H*0.084,true,SANS,H*0.05);
-      line(H*0.695+off);
+      // middle line and the NOW part sit 5 mm lower, for a bigger gap under the old price
+      const dn=5*DPMM*(H/(79*DPMM));
+      line(H*0.392+off+dn);
+      text('NOW',H*0.475+off+dn,H*0.031,true,SANS);
+      text(P(it.now),H*0.578+off+dn,H*0.084,true,SANS,H*0.05);
+      line(H*0.695+off+dn);
     }else{
       text('PRICE',H*0.232+off,H*0.031,true,SANS);
       text(P(it.now!=null?it.now:it.was),H*0.325+off,H*0.084,true,SANS,H*0.05);
