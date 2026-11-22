@@ -316,7 +316,7 @@ function drawLabel(it,c){
 function designLabel(it,c,W,H){
   const cv=document.createElement('canvas');cv.width=W;cv.height=H;
   const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,W,H);g.fillStyle='#000';g.strokeStyle='#000';g.textAlign='center';g.textBaseline='middle';
-  const SANS='"Arial Narrow",Arial,Roboto,sans-serif',MONO='"Roboto Mono","Droid Sans Mono","DejaVu Sans Mono","Liberation Mono","Courier New",monospace';
+  const SANS='"Arial Narrow",Arial,Roboto,sans-serif',MONO='"Droid Sans Mono","Roboto Mono","DejaVu Sans Mono","Liberation Mono","Courier New",monospace';
   const disc=it.was!=null&&it.now!=null&&it.now<it.was,P=v=>`${c.cur} ${price2(v)}`;
   const font=(px,bold,ff)=>{g.font=`${bold?'bold ':''}${Math.round(px)}px ${ff}`;};
   if(H>W*1.15){
@@ -325,30 +325,33 @@ function designLabel(it,c,W,H){
     const fit=(t,px,bold,ff,min)=>{let s=px;do{font(s,bold,ff);if(g.measureText(t).width<=inner)break;s-=1;}while(s>min);return s;};
     const text=(t,y,px,bold,ff,min)=>{const s=fit(t,px,bold,ff,min||px*0.6);font(s,bold,ff);g.fillText(t,W/2,y);return s;};
     const line=y=>{g.fillRect(Math.round(W*0.06),Math.round(y),Math.round(W*0.88),Math.max(2,Math.round(H*0.003)));};
-    let y=H*0.089;
-    text(it.code,y,H*0.034,true,MONO);
+    // code and name: larger, regular weight with an even outline so they print crisp at 203 dpi
+    const crisp=(t,y,px,min)=>{const sz=fit(t,px,false,MONO,min||px*0.65);font(sz,false,MONO);g.lineWidth=Math.max(1,sz*0.05);g.lineJoin='round';g.strokeText(t,W/2,y);g.fillText(t,W/2,y);};
+    let y=H*0.085;
+    crisp(it.code,y,H*0.042);
     if(c.name&&it.name){y=H*0.140;
       // long names go on two lines
-      font(H*0.030,true,MONO);let parts=[it.name];
+      font(H*0.034,false,MONO);let parts=[it.name];
       if(g.measureText(it.name).width>inner){const w=it.name.split(/\s+/);let bd=1e9;for(let k=1;k<w.length;k++){const a=w.slice(0,k).join(' '),b=w.slice(k).join(' '),d=Math.max(g.measureText(a).width,g.measureText(b).width);if(d<bd){bd=d;parts=[a,b];}}}
-      parts.forEach((t,i)=>{text(t,y,H*0.030,true,MONO,H*0.02);if(i<parts.length-1)y+=H*0.036;});}
+      parts.forEach((t,i)=>{crisp(t,y,H*0.034,H*0.024);if(i<parts.length-1)y+=H*0.042;});}
     const off=y-H*0.140;   // extra room used by a two-line name
-    line(H*0.160+off);
+    line(H*0.168+off);
     if(disc){
-      text('WAS',H*0.198+off,H*0.031,true,SANS);
-      const wy=H*0.268+off,ws=fit(P(it.was),H*0.068,false,SANS,H*0.04);font(ws,false,SANS);g.lineWidth=1.2;g.strokeText(P(it.was),W/2,wy);
-      const tw=g.measureText(P(it.was)).width,x0=W/2-tw/2-W*0.03,x1=W/2+tw/2+W*0.03;g.lineWidth=2;
+      text('WAS',H*0.212+off,H*0.031,true,SANS);
+      const wy=H*0.287+off,ws=fit(P(it.was),H*0.068,false,SANS,H*0.04);font(ws,false,SANS);g.lineWidth=1.2;g.strokeText(P(it.was),W/2,wy);
+      const tw=g.measureText(P(it.was)).width,x0=W/2-tw/2-W*0.03,x1=W/2+tw/2+W*0.03;
       g.fillText(P(it.was),W/2,wy);
       // two clean crossing lines over the old price, like the shelf tags
       g.lineWidth=2;g.beginPath();g.moveTo(x0,wy-ws*0.42);g.lineTo(x1,wy+ws*0.42);g.stroke();g.beginPath();g.moveTo(x0,wy+ws*0.42);g.lineTo(x1,wy-ws*0.42);g.stroke();
-      line(H*0.334+off);
-      text('NOW',H*0.388+off,H*0.031,true,SANS);
-      text(P(it.now),H*0.478+off,H*0.084,true,SANS,H*0.05);
-      line(H*0.585+off);
+      line(H*0.362+off);
+      // more space between the WAS and NOW parts
+      text('NOW',H*0.425+off,H*0.031,true,SANS);
+      text(P(it.now),H*0.520+off,H*0.084,true,SANS,H*0.05);
+      line(H*0.630+off);
     }else{
-      text('PRICE',H*0.205+off,H*0.031,true,SANS);
-      text(P(it.now!=null?it.now:it.was),H*0.295+off,H*0.084,true,SANS,H*0.05);
-      line(H*0.400+off);
+      text('PRICE',H*0.215+off,H*0.031,true,SANS);
+      text(P(it.now!=null?it.now:it.was),H*0.305+off,H*0.084,true,SANS,H*0.05);
+      line(H*0.410+off);
     }
   }else{
     // ---- wide label ----
