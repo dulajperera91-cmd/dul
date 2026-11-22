@@ -326,32 +326,32 @@ function designLabel(it,c,W,H){
     const text=(t,y,px,bold,ff,min)=>{const s=fit(t,px,bold,ff,min||px*0.6);font(s,bold,ff);g.fillText(t,W/2,y);return s;};
     const line=y=>{g.fillRect(Math.round(W*0.06),Math.round(y),Math.round(W*0.88),Math.max(2,Math.round(H*0.003)));};
     // code and name: larger, regular weight with an even outline so they print crisp at 203 dpi
-    const crisp=(t,y,px,min)=>{const sz=fit(t,px,false,MONO,min||px*0.65);font(sz,false,MONO);g.lineWidth=Math.max(1,sz*0.05);g.lineJoin='round';g.strokeText(t,W/2,y);g.fillText(t,W/2,y);};
+    const crisp=(t,y,px,min)=>{const sz=fit(t,px,false,MONO,min||px*0.65);font(sz,false,MONO);g.lineWidth=1;g.lineJoin='round';g.strokeText(t,W/2,y);g.fillText(t,W/2,y);};
     let y=H*0.085;
-    crisp(it.code,y,H*0.042);
-    if(c.name&&it.name){y=H*0.140;
+    crisp(it.code,y,H*0.050);
+    if(c.name&&it.name){y=H*0.148;
       // long names go on two lines
-      font(H*0.034,false,MONO);let parts=[it.name];
+      font(H*0.040,false,MONO);let parts=[it.name];
       if(g.measureText(it.name).width>inner){const w=it.name.split(/\s+/);let bd=1e9;for(let k=1;k<w.length;k++){const a=w.slice(0,k).join(' '),b=w.slice(k).join(' '),d=Math.max(g.measureText(a).width,g.measureText(b).width);if(d<bd){bd=d;parts=[a,b];}}}
-      parts.forEach((t,i)=>{crisp(t,y,H*0.034,H*0.024);if(i<parts.length-1)y+=H*0.042;});}
-    const off=y-H*0.140;   // extra room used by a two-line name
-    line(H*0.168+off);
+      parts.forEach((t,i)=>{crisp(t,y,H*0.040,H*0.026);if(i<parts.length-1)y+=H*0.048;});}
+    const off=y-H*0.148;   // extra room used by a two-line name
+    line(H*0.182+off);
     if(disc){
-      text('WAS',H*0.212+off,H*0.031,true,SANS);
-      const wy=H*0.287+off,ws=fit(P(it.was),H*0.068,false,SANS,H*0.04);font(ws,false,SANS);g.lineWidth=1.2;g.strokeText(P(it.was),W/2,wy);
+      text('WAS',H*0.226+off,H*0.031,true,SANS);
+      const wy=H*0.300+off,ws=fit(P(it.was),H*0.068,false,SANS,H*0.04);font(ws,false,SANS);
       const tw=g.measureText(P(it.was)).width,x0=W/2-tw/2-W*0.03,x1=W/2+tw/2+W*0.03;
       g.fillText(P(it.was),W/2,wy);
       // two clean crossing lines over the old price, like the shelf tags
       g.lineWidth=2;g.beginPath();g.moveTo(x0,wy-ws*0.42);g.lineTo(x1,wy+ws*0.42);g.stroke();g.beginPath();g.moveTo(x0,wy+ws*0.42);g.lineTo(x1,wy-ws*0.42);g.stroke();
-      line(H*0.362+off);
+      line(H*0.392+off);
       // more space between the WAS and NOW parts
-      text('NOW',H*0.425+off,H*0.031,true,SANS);
-      text(P(it.now),H*0.520+off,H*0.084,true,SANS,H*0.05);
-      line(H*0.630+off);
+      text('NOW',H*0.475+off,H*0.031,true,SANS);
+      text(P(it.now),H*0.578+off,H*0.084,true,SANS,H*0.05);
+      line(H*0.695+off);
     }else{
-      text('PRICE',H*0.215+off,H*0.031,true,SANS);
-      text(P(it.now!=null?it.now:it.was),H*0.305+off,H*0.084,true,SANS,H*0.05);
-      line(H*0.410+off);
+      text('PRICE',H*0.232+off,H*0.031,true,SANS);
+      text(P(it.now!=null?it.now:it.was),H*0.325+off,H*0.084,true,SANS,H*0.05);
+      line(H*0.430+off);
     }
   }else{
     // ---- wide label ----
