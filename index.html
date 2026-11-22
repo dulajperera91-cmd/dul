@@ -580,8 +580,13 @@ const T={bc:h=>/barcode|bar code|ean|upc/.test(h),sn:h=>/search ?name/.test(h),w
 const idx=(h,t,not)=>h.findIndex((x,i)=>t(x)&&!(not&&not(x)));
 function buildList(sheets,fileName){
   let price=null,info=null;
-  for(const s of sheets){const a=headerOf(s.rows,[T.bc,T.was,T.now]);if(a&&!price)price={s,...a,kind:'bc'};}
-  for(const s of sheets){const b=headerOf(s.rows,[T.sn,T.pname]);if(b&&!info)info={s,...b};}
+  // a file can hold extra sheets (warehouse lists, Sheet1...). Pick the sheet that has the stock (OH) column,
+  // preferring one named "OH"; for product names prefer the sheet named "MSD".
+  const hasOh=h=>h.some(x=>/\boh\b|on ?hand/.test(x));
+  const pc=[];sheets.forEach((s,i)=>{const a=headerOf(s.rows,[T.bc,T.was,T.now]);if(a)pc.push({s,...a,kind:'bc',sc:(hasOh(a.h)?100:0)+(/^\s*oh\s*$/i.test(s.name)?50:0)+(a.h.some(x=>/ramada/.test(x))?20:0)-i});});
+  pc.sort((x,y)=>y.sc-x.sc);price=pc[0]||null;
+  const ic=[];sheets.forEach((s,i)=>{const b=headerOf(s.rows,[T.sn,T.pname]);if(b)ic.push({s,...b,sc:(/^\s*msd\s*$/i.test(s.name)?50:0)-i});});
+  ic.sort((x,y)=>y.sc-x.sc);info=ic[0]||null;
   if(!price)for(const s of sheets){const a=headerOf(s.rows,[T.sn,T.was,T.now]);if(a){price={s,...a,kind:'sn'};break;}}
   if(!price)throw new Error('Could not find the price columns. The sheet needs headings like ITEM BARCODE (or Search name), Was and Now.');
   const h=price.h,ci={bc:idx(h,T.bc),sn:idx(h,T.sn),was:idx(h,T.was),now:idx(h,T.now)};
@@ -642,7 +647,7 @@ function adminPanel(){
     try{const t0=Date.now();const sheets=await readWorkbook(f);const r=buildList(sheets,f.name.replace(/\.[^.]+$/,''));PENDING=r;const s=r.stats;
       $('prev').innerHTML=`<div class="box"><b>${esc(f.name)}</b><br>Prices from sheet <b>${esc(s.sheet)}</b>: ${s.barcodes.toLocaleString('en-US')} barcodes${s.extra?` + ${s.extra.toLocaleString('en-US')} items without barcode`:''}<br>
         ${s.infoSheet?`Product names from sheet <b>${esc(s.infoSheet)}</b>: ${s.names.toLocaleString('en-US')}<br>`:'No product name sheet found (names will not show).<br>'}
-        Stock column: <b>${esc(s.ohLabel)}</b><br>${s.noPrice?`<span style="color:#c62828">${s.noPrice.toLocaleString('en-US')} lines have no Was/Now price (#N/A) – they will show “no price”.</span><br>`:''}${s.dup?`${s.dup} repeated barcodes skipped.<br>`:''}
+        ${s.ohLabel==='OH'?'<span style="color:#c62828"><b>No stock (OH) column found</b> – Ramada OH will show 0. Check the OH sheet headings.</span><br>':'Stock column: <b>'+esc(s.ohLabel)+'</b><br>'}${s.noPrice?`<span style="color:#c62828">${s.noPrice.toLocaleString('en-US')} lines have no Was/Now price (#N/A) – they will show “no price”.</span><br>`:''}${s.dup?`${s.dup} repeated barcodes skipped.<br>`:''}
         Total: <b>${s.count.toLocaleString('en-US')}</b> items</div>`;
       pm('Ready. Tap “'+$('up').textContent+'” – the old list is removed from every device.','ok');$('up').disabled=false;}
     catch(e){pm(e.message,'bad');}};
