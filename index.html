@@ -294,12 +294,13 @@ function show(ids){
 /* ---------- price label printing (HOIN HL80B: Bluetooth TSPL, or DLabel / image) ---------- */
 let CUR=null;            // item on screen, ready to print
 // store format: 4 cm wide x 7.9 cm long, portrait (tall), like the shelf price tags
-const LDEF={w:40,h:79,gap:2,density:10,flip:false,dx:0,dy:0,cur:'QR',name:true,quick:false,orient:'port',fmtv:2};
+// the shelf-tag roll is loaded sideways: 7.9 cm across the printer, each tag comes out 4 cm long, printed turned
+const LDEF={w:79,h:40,gap:2,density:13,flip:false,dx:0,dy:0,cur:'QR',name:true,quick:false,orient:'port',fmtv:3};
 function lcfg(){let c={};try{c=JSON.parse(ls('pc.label')||'{}')||{};}catch(e){}
-  if(!c.fmtv){c.w=40;c.h=79;c.orient='port';c.fmtv=2;}   // one-time switch of every device to the store format
+  if((c.fmtv||0)<3){c.w=79;c.h=40;c.orient='port';c.density=Math.max(+c.density||0,13);c.dx=0;c.dy=0;c.fmtv=3;}   // one-time switch of every device to the shelf-tag roll
   return Object.assign({},LDEF,c);}
 const cm=mm=>String(Math.round(mm)/10);
-function lsave(c){ls('pc.label',JSON.stringify(Object.assign({},c,{fmtv:2})));}
+function lsave(c){ls('pc.label',JSON.stringify(Object.assign({},c,{fmtv:3})));}
 const DPMM=8; // 203 dpi = 8 dots per mm
 function price2(n){return n==null?'':(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function drawLabel(it,c){
@@ -315,7 +316,7 @@ function drawLabel(it,c){
 function designLabel(it,c,W,H){
   const cv=document.createElement('canvas');cv.width=W;cv.height=H;
   const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,W,H);g.fillStyle='#000';g.strokeStyle='#000';g.textAlign='center';g.textBaseline='middle';
-  const SANS='"Arial Narrow",Arial,Roboto,sans-serif',MONO='"Courier New",Courier,"Cutive Mono","Droid Sans Mono",monospace';
+  const SANS='"Arial Narrow",Arial,Roboto,sans-serif',MONO='"Roboto Mono","Droid Sans Mono","DejaVu Sans Mono","Liberation Mono","Courier New",monospace';
   const disc=it.was!=null&&it.now!=null&&it.now<it.was,P=v=>`${c.cur} ${price2(v)}`;
   const font=(px,bold,ff)=>{g.font=`${bold?'bold ':''}${Math.round(px)}px ${ff}`;};
   if(H>W*1.15){
@@ -325,12 +326,12 @@ function designLabel(it,c,W,H){
     const text=(t,y,px,bold,ff,min)=>{const s=fit(t,px,bold,ff,min||px*0.6);font(s,bold,ff);g.fillText(t,W/2,y);return s;};
     const line=y=>{g.fillRect(Math.round(W*0.06),Math.round(y),Math.round(W*0.88),Math.max(2,Math.round(H*0.003)));};
     let y=H*0.089;
-    text(it.code,y,H*0.029,true,MONO);
+    text(it.code,y,H*0.034,true,MONO);
     if(c.name&&it.name){y=H*0.140;
       // long names go on two lines
-      font(H*0.026,true,MONO);let parts=[it.name];
+      font(H*0.030,true,MONO);let parts=[it.name];
       if(g.measureText(it.name).width>inner){const w=it.name.split(/\s+/);let bd=1e9;for(let k=1;k<w.length;k++){const a=w.slice(0,k).join(' '),b=w.slice(k).join(' '),d=Math.max(g.measureText(a).width,g.measureText(b).width);if(d<bd){bd=d;parts=[a,b];}}}
-      parts.forEach((t,i)=>{text(t,y,H*0.026,true,MONO,H*0.017);if(i<parts.length-1)y+=H*0.036;});}
+      parts.forEach((t,i)=>{text(t,y,H*0.030,true,MONO,H*0.02);if(i<parts.length-1)y+=H*0.036;});}
     const off=y-H*0.140;   // extra room used by a two-line name
     line(H*0.160+off);
     if(disc){
@@ -379,7 +380,7 @@ function tsplBytes(cv,c,copies){
   const W=cv.width,H=cv.height,wb=Math.ceil(W/8),d=cv.getContext('2d').getImageData(0,0,W,H).data,bm=new Uint8Array(wb*H).fill(0xFF);
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(d[(y*W+x)*4]<128)bm[y*wb+(x>>3)]&=~(0x80>>(x&7));}   // 0 = black dot
   const enc=new TextEncoder();
-  const head=enc.encode(`SIZE ${c.w} mm,${c.h} mm\r\nGAP ${c.gap} mm,0 mm\r\nDIRECTION ${c.flip?0:1},0\r\nREFERENCE ${Math.round((+c.dx||0)*DPMM)},${Math.round((+c.dy||0)*DPMM)}\r\nDENSITY ${c.density}\r\nSPEED 4\r\nSET TEAR ON\r\nCLS\r\nBITMAP 0,0,${wb},${H},0,`);
+  const head=enc.encode(`SIZE ${c.w} mm,${c.h} mm\r\nGAP ${c.gap} mm,0 mm\r\nDIRECTION ${c.flip?0:1},0\r\nREFERENCE ${Math.round((+c.dx||0)*DPMM)},${Math.round((+c.dy||0)*DPMM)}\r\nDENSITY ${c.density}\r\nSPEED 3\r\nSET TEAR ON\r\nCLS\r\nBITMAP 0,0,${wb},${H},0,`);
   const tail=enc.encode(`\r\nPRINT 1,${Math.max(1,copies|0)}\r\n`);
   const out=new Uint8Array(head.length+bm.length+tail.length);out.set(head,0);out.set(bm,head.length);out.set(tail,head.length+bm.length);return out;
 }
@@ -455,14 +456,14 @@ async function quickPrint(){
   try{await btConnect(false);await btSend(tsplBytes(cv,c,1));showMsg('Label printed ✓','ok');}
   catch(e){labelSheet();pm((e&&e.message)||String(e),'bad');}
 }
-const SIZES=[[40,79],[80,50],[80,60],[80,40],[70,50],[60,40],[50,30],[50,40],[40,30]];
+const SIZES=[[79,40],[40,79],[80,50],[80,60],[70,50],[60,40],[50,30],[50,40],[40,30]];
 function labelSettings(back){
   const c=lcfg();const nm=ls('pc.btname');
   openSheet(`<h3>Label & printer settings</h3>
   <p><b>Print direction</b></p>
   <div class="orient"><button class="orb${c.orient!=='port'?' on':''}" data-or="land"><i class="ol"></i>Landscape<small>wide label</small></button><button class="orb${c.orient==='port'?' on':''}" data-or="port"><i class="op"></i>Portrait<small>tall label, like the shelf tags</small></button></div>
-  <p><b>Label size in cm</b> (measure one label: width = across the printer, length = the way it comes out)</p>
-  <div class="sizes">${SIZES.map(([w,h])=>`<button class="szb${c.w==w&&c.h==h?' on':''}" data-sz="${w}x${h}">${cm(w)} × ${cm(h)}</button>`).join('')}</div>
+  <p><b>Label size in cm</b> – measure the label <b>as it sits in the printer</b>: Width = across the printer, Length = the way it comes out. Your shelf-tag roll is loaded sideways: <b>Width 7.9, Length 4</b>.</p>
+  <div class="sizes">${SIZES.map(([w,h])=>`<button class="szb${c.w==w&&c.h==h?' on':''}" data-sz="${w}x${h}">${w==79&&h==40?'Shelf tag 7.9 × 4':cm(w)+' × '+cm(h)}</button>`).join('')}</div>
   <div class="grid2"><label>Width cm<input type="number" id="sW" min="2" max="8" step="0.1" value="${cm(c.w)}"></label><label>Length cm<input type="number" id="sH" min="1" max="20" step="0.1" value="${cm(c.h)}"></label>
   <label>Gap between labels mm<input type="number" id="sG" min="0" max="10" step="0.5" value="${c.gap}"></label><label>Darkness (1–15)<input type="number" id="sD" min="1" max="15" value="${c.density}"></label>
   <label>Move right mm<input type="number" id="sX" step="0.5" value="${c.dx}"></label><label>Move down mm<input type="number" id="sY" step="0.5" value="${c.dy}"></label>
