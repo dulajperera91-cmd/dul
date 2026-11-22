@@ -325,17 +325,17 @@ function designLabel(it,c,W,H){
     const text=(t,y,px,bold,ff,min)=>{const s=fit(t,px,bold,ff,min||px*0.6);font(s,bold,ff);g.fillText(t,W/2,y);return s;};
     const line=y=>{g.fillRect(Math.round(W*0.06),Math.round(y),Math.round(W*0.88),Math.max(2,Math.round(H*0.003)));};
     let y=H*0.089;
-    text(it.code,y,H*0.028,false,MONO);
+    text(it.code,y,H*0.029,true,MONO);
     if(c.name&&it.name){y=H*0.140;
       // long names go on two lines
-      font(H*0.026,false,MONO);let parts=[it.name];
+      font(H*0.026,true,MONO);let parts=[it.name];
       if(g.measureText(it.name).width>inner){const w=it.name.split(/\s+/);let bd=1e9;for(let k=1;k<w.length;k++){const a=w.slice(0,k).join(' '),b=w.slice(k).join(' '),d=Math.max(g.measureText(a).width,g.measureText(b).width);if(d<bd){bd=d;parts=[a,b];}}}
-      parts.forEach((t,i)=>{text(t,y,H*0.026,false,MONO,H*0.017);if(i<parts.length-1)y+=H*0.036;});}
+      parts.forEach((t,i)=>{text(t,y,H*0.026,true,MONO,H*0.017);if(i<parts.length-1)y+=H*0.036;});}
     const off=y-H*0.140;   // extra room used by a two-line name
     line(H*0.160+off);
     if(disc){
       text('WAS',H*0.198+off,H*0.031,true,SANS);
-      const wy=H*0.268+off,ws=fit(P(it.was),H*0.068,false,SANS,H*0.04);font(ws,false,SANS);
+      const wy=H*0.268+off,ws=fit(P(it.was),H*0.068,false,SANS,H*0.04);font(ws,false,SANS);g.lineWidth=1.2;g.strokeText(P(it.was),W/2,wy);
       const tw=g.measureText(P(it.was)).width,x0=W/2-tw/2-W*0.03,x1=W/2+tw/2+W*0.03;g.lineWidth=2;
       g.fillText(P(it.was),W/2,wy);
       // two clean crossing lines over the old price, like the shelf tags
@@ -354,8 +354,8 @@ function designLabel(it,c,W,H){
     const m=Math.max(10,Math.round(Math.min(W,H)*0.05)),inner=W-2*m;
     const fit=(t,px,bold,min)=>{let s=px;do{font(s,bold,SANS);if(g.measureText(t).width<=inner)break;s-=1;}while(s>(min||8));return s;};
     const rows=[];
-    rows.push({t:it.code,s:H*0.11,b:false,ff:MONO});
-    if(c.name&&it.name)rows.push({t:it.name,s:H*0.085,b:false,min:H*0.05,ff:MONO});
+    rows.push({t:it.code,s:H*0.11,b:true,ff:MONO});
+    if(c.name&&it.name)rows.push({t:it.name,s:H*0.085,b:true,min:H*0.05,ff:MONO});
     rows.push({line:1});
     if(disc){rows.push({t:`WAS: ${P(it.was)}`,s:H*0.13,b:false,strike:1});rows.push({line:1});rows.push({t:`NOW: ${P(it.now)}`,s:H*0.15,b:true});}
     else rows.push({t:`PRICE: ${P(it.now!=null?it.now:it.was)}`,s:H*0.16,b:true});
@@ -372,7 +372,7 @@ function designLabel(it,c,W,H){
       g.fillText(r.t,W/2,cy);y+=h+sp;});
   }
   // pure black & white (thermal printers have no grey)
-  const im=g.getImageData(0,0,W,H),d=im.data;for(let i=0;i<d.length;i+=4){const v=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000<150?0:255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;}g.putImageData(im,0,0);
+  const im=g.getImageData(0,0,W,H),d=im.data;for(let i=0;i<d.length;i+=4){const v=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000<190?0:255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;}g.putImageData(im,0,0);
   return cv;
 }
 function tsplBytes(cv,c,copies){
@@ -472,7 +472,7 @@ function labelSettings(back){
   <label class="chk"><input type="checkbox" id="sF" ${c.flip?'checked':''}> Turn print upside down</label>
   <label class="chk"><input type="checkbox" id="sQ" ${c.quick?'checked':''}> Print button prints straight away (no preview)</label>
   <div class="box">${btOk()?(nm?'Printer: <b>'+esc(ls('pc.btnick')||nm)+'</b>'+(ls('pc.btnick')?' ('+esc(nm)+')':'')+(BT.ch?' – connected':''):'No printer connected yet.'):'This browser has no Bluetooth printing. Use Chrome on Android, or “Send to DLabel”.'}</div>
-  ${btOk()?'<button class="btn light" id="sBt">Connect printer (Bluetooth)</button><button class="btn light" id="sTest">Print test label</button>':''}
+  ${btOk()?'<button class="btn light" id="sBt">Connect printer (Bluetooth)</button><button class="btn light" id="sCal">Calibrate printer to this label roll</button><button class="btn light" id="sTest">Print test label</button>':''}
   <div class="pmsg" id="pm"></div>
   <button class="btn" id="sSave">Save</button><button class="btn light" data-close>Close</button>`);
   let OR=c.orient==='port'?'port':'land';
@@ -483,6 +483,10 @@ function labelSettings(back){
   const nick=()=>{const v=($('sPN').value||'').trim();ls('pc.btnick',v||null);pstat();return v;};
   $('sSave').onclick=()=>{nick();lsave(read());pm('Saved.','ok');setTimeout(()=>{if(back&&CUR)labelSheet();else closeSheet();},400);};
   if($('sBt'))$('sBt').onclick=async()=>{try{pm('Choose your HOIN printer in the list…','');await btConnect(true);pm('Connected to '+(BT.dev.name||'printer')+' ✓  Now type a printer name (e.g. Printer 1), tap Print test label, and stick the same name on the printer.','ok');}catch(e){pm(e&&e.name==='NotFoundError'?'No printer chosen.':(e.message||String(e)),'bad');}};
+  if($('sCal'))$('sCal').onclick=async()=>{const c2=read();lsave(c2);
+    try{pm('Calibrating… the printer feeds a few labels to measure them.','');await btConnect(false);
+      await btSend(new TextEncoder().encode(`SIZE ${c2.w} mm,${c2.h} mm\r\nGAP ${c2.gap} mm,0 mm\r\nGAPDETECT\r\nHOME\r\n`));
+      pm('Done ✓  Now tap Print test label.','ok');}catch(e){pm(e&&e.name==='NotFoundError'?'No printer chosen.':(e.message||String(e)),'bad');}};
   if($('sTest'))$('sTest').onclick=async()=>{const c2=read();lsave(c2);const nk=nick();const it={code:nk||'TEST LABEL',name:'This PDT prints here',was:169,now:129};
     try{pm('Printing test label…','');await btConnect(false);await btSend(tsplBytes(drawLabel(it,c2),c2,1));pm('Test label printed ✓  If it is not centred, change “Move right / down”.','ok');}catch(e){pm(e&&e.name==='NotFoundError'?'No printer chosen.':(e.message||String(e)),'bad');}};
 }
