@@ -293,60 +293,85 @@ function show(ids){
 
 /* ---------- price label printing (HOIN HL80B: Bluetooth TSPL, or DLabel / image) ---------- */
 let CUR=null;            // item on screen, ready to print
-const LDEF={w:80,h:50,gap:2,density:10,flip:false,dx:0,dy:0,cur:'QR',name:true,quick:false,orient:'land'};
+// store format: 4 cm wide x 7.9 cm long, portrait (tall), like the shelf price tags
+const LDEF={w:40,h:79,gap:2,density:10,flip:false,dx:0,dy:0,cur:'QR',name:true,quick:false,orient:'port',fmtv:2};
 function lcfg(){let c={};try{c=JSON.parse(ls('pc.label')||'{}')||{};}catch(e){}
-  if(c.w&&!c.orient&&c.w==50&&c.h==40){c.w=80;c.h=50;}   // old default -> your 8 x 5 cm labels
+  if(!c.fmtv){c.w=40;c.h=79;c.orient='port';c.fmtv=2;}   // one-time switch of every device to the store format
   return Object.assign({},LDEF,c);}
 const cm=mm=>String(Math.round(mm)/10);
-function lsave(c){ls('pc.label',JSON.stringify(c));}
+function lsave(c){ls('pc.label',JSON.stringify(Object.assign({},c,{fmtv:2})));}
 const DPMM=8; // 203 dpi = 8 dots per mm
 function price2(n){return n==null?'':(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function drawLabel(it,c){
-  // c.w = label width across the printer, c.h = label length (both mm). Portrait = text turned 90° along the long side.
-  const W=Math.round(c.w*DPMM),H=Math.round(c.h*DPMM),port=c.orient==='port';
-  const view=designLabel(it,c,port?H:W,port?W:H,port);
+  // c.w = label width across the printer, c.h = label length (mm). Portrait = the finished label is taller than wide.
+  // The picture is turned 90° only when the label roll and the chosen look don't match.
+  const W=Math.round(c.w*DPMM),H=Math.round(c.h*DPMM),wantTall=c.orient==='port',rollTall=H>W;
+  const rot=W!==H&&wantTall!==rollTall;
+  const view=designLabel(it,c,rot?H:W,rot?W:H);
   let cv=view;
-  if(port){cv=document.createElement('canvas');cv.width=W;cv.height=H;const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,W,H);g.translate(W,0);g.rotate(Math.PI/2);g.drawImage(view,0,0);}
+  if(rot){cv=document.createElement('canvas');cv.width=W;cv.height=H;const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,W,H);g.translate(W,0);g.rotate(Math.PI/2);g.drawImage(view,0,0);}
   cv.view=view;return cv;
 }
-function designLabel(it,c,W,H,port){
+function designLabel(it,c,W,H){
   const cv=document.createElement('canvas');cv.width=W;cv.height=H;
   const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,W,H);g.fillStyle='#000';g.strokeStyle='#000';g.textAlign='center';g.textBaseline='middle';
-  const m=Math.max(10,Math.round(Math.min(W,H)*0.05)),inner=W-2*m,FF='"Arial Narrow",Arial,Roboto,sans-serif';
-  const fit=(t,px,bold,min)=>{let s=px;do{g.font=`${bold?'bold ':''}${s}px ${FF}`;if(g.measureText(t).width<=inner)break;s-=1;}while(s>(min||8));return s;};
-  const wrap2=(t,px)=>{g.font=`${px}px ${FF}`;if(g.measureText(t).width<=inner)return [t];const w=t.split(/\s+/);let best=[t],bd=1e9;
-    for(let k=1;k<w.length;k++){const a=w.slice(0,k).join(' '),b=w.slice(k).join(' '),d=Math.max(g.measureText(a).width,g.measureText(b).width);if(d<bd){bd=d;best=[a,b];}}return best;};
+  const SANS='"Arial Narrow",Arial,Roboto,sans-serif',MONO='"Courier New",Courier,"Cutive Mono","Droid Sans Mono",monospace';
   const disc=it.was!=null&&it.now!=null&&it.now<it.was,P=v=>`${c.cur} ${price2(v)}`;
-  const rows=[];
-  if(!port){
-    rows.push({t:it.code,s:H*0.11,b:false});
-    if(c.name&&it.name)rows.push({t:it.name,s:H*0.085,b:false,min:H*0.05});
-    rows.push({line:1});
-    if(disc){rows.push({t:`WAS: ${P(it.was)}`,s:H*0.13,b:true,strike:1});rows.push({line:1});rows.push({t:`NOW: ${P(it.now)}`,s:H*0.15,b:true});}
-    else rows.push({t:`PRICE: ${P(it.now!=null?it.now:it.was)}`,s:H*0.16,b:true});
+  const font=(px,bold,ff)=>{g.font=`${bold?'bold ':''}${Math.round(px)}px ${ff}`;};
+  if(H>W*1.15){
+    // ---- tall label: the store's shelf-tag format (code, name, WAS + crossed price, NOW + big price, lines) ----
+    const m=Math.round(W*0.08),inner=W-2*m;
+    const fit=(t,px,bold,ff,min)=>{let s=px;do{font(s,bold,ff);if(g.measureText(t).width<=inner)break;s-=1;}while(s>min);return s;};
+    const text=(t,y,px,bold,ff,min)=>{const s=fit(t,px,bold,ff,min||px*0.6);font(s,bold,ff);g.fillText(t,W/2,y);return s;};
+    const line=y=>{g.fillRect(Math.round(W*0.06),Math.round(y),Math.round(W*0.88),Math.max(2,Math.round(H*0.003)));};
+    let y=H*0.089;
+    text(it.code,y,H*0.028,false,MONO);
+    if(c.name&&it.name){y=H*0.140;
+      // long names go on two lines
+      font(H*0.026,false,MONO);let parts=[it.name];
+      if(g.measureText(it.name).width>inner){const w=it.name.split(/\s+/);let bd=1e9;for(let k=1;k<w.length;k++){const a=w.slice(0,k).join(' '),b=w.slice(k).join(' '),d=Math.max(g.measureText(a).width,g.measureText(b).width);if(d<bd){bd=d;parts=[a,b];}}}
+      parts.forEach((t,i)=>{text(t,y,H*0.026,false,MONO,H*0.017);if(i<parts.length-1)y+=H*0.036;});}
+    const off=y-H*0.140;   // extra room used by a two-line name
+    line(H*0.160+off);
+    if(disc){
+      text('WAS',H*0.198+off,H*0.031,true,SANS);
+      const wy=H*0.268+off,ws=fit(P(it.was),H*0.068,false,SANS,H*0.04);font(ws,false,SANS);
+      const tw=g.measureText(P(it.was)).width,x0=W/2-tw/2-W*0.03,x1=W/2+tw/2+W*0.03;g.lineWidth=2;
+      g.fillText(P(it.was),W/2,wy);
+      // two clean crossing lines over the old price, like the shelf tags
+      g.lineWidth=2;g.beginPath();g.moveTo(x0,wy-ws*0.42);g.lineTo(x1,wy+ws*0.42);g.stroke();g.beginPath();g.moveTo(x0,wy+ws*0.42);g.lineTo(x1,wy-ws*0.42);g.stroke();
+      line(H*0.334+off);
+      text('NOW',H*0.388+off,H*0.031,true,SANS);
+      text(P(it.now),H*0.478+off,H*0.084,true,SANS,H*0.05);
+      line(H*0.585+off);
+    }else{
+      text('PRICE',H*0.205+off,H*0.031,true,SANS);
+      text(P(it.now!=null?it.now:it.was),H*0.295+off,H*0.084,true,SANS,H*0.05);
+      line(H*0.400+off);
+    }
   }else{
-    // portrait: narrow and tall, so words and prices sit on their own lines
-    rows.push({t:it.code,s:H*0.075,b:true});
-    if(c.name&&it.name)wrap2(it.name,Math.round(H*0.05)).forEach(t=>rows.push({t,s:H*0.05,b:false,min:H*0.03}));
+    // ---- wide label ----
+    const m=Math.max(10,Math.round(Math.min(W,H)*0.05)),inner=W-2*m;
+    const fit=(t,px,bold,min)=>{let s=px;do{font(s,bold,SANS);if(g.measureText(t).width<=inner)break;s-=1;}while(s>(min||8));return s;};
+    const rows=[];
+    rows.push({t:it.code,s:H*0.11,b:false,ff:MONO});
+    if(c.name&&it.name)rows.push({t:it.name,s:H*0.085,b:false,min:H*0.05,ff:MONO});
     rows.push({line:1});
-    if(disc){rows.push({t:'WAS',s:H*0.05,b:true});rows.push({t:P(it.was),s:H*0.085,b:true,strike:1});rows.push({line:1});
-      rows.push({t:'NOW',s:H*0.06,b:true});rows.push({t:P(it.now),s:H*0.11,b:true});}
-    else{rows.push({t:'PRICE',s:H*0.06,b:true});rows.push({t:P(it.now!=null?it.now:it.was),s:H*0.11,b:true});}
+    if(disc){rows.push({t:`WAS: ${P(it.was)}`,s:H*0.13,b:false,strike:1});rows.push({line:1});rows.push({t:`NOW: ${P(it.now)}`,s:H*0.15,b:true});}
+    else rows.push({t:`PRICE: ${P(it.now!=null?it.now:it.was)}`,s:H*0.16,b:true});
+    rows.push({line:1});
+    rows.forEach(r=>{if(!r.line){let s=Math.round(r.s);do{font(s,r.b,r.ff||SANS);if(g.measureText(r.t).width<=inner)break;s-=1;}while(s>(r.min||8));r.s=s;}});
+    const lw=Math.max(2,Math.round(H*0.007)),used=rows.reduce((a,r)=>a+(r.line?lw:r.s*1.15),0),sp=Math.max(0,(H-2*m*0.6-used)/(rows.length+1));
+    let y=m*0.6+sp;
+    rows.forEach(r=>{
+      if(r.line){g.fillRect(m,Math.round(y),inner,lw);y+=lw+sp;return;}
+      const h=r.s*1.15,cy=y+h/2;font(r.s,r.b,r.ff||SANS);
+      if(r.strike){const tw=g.measureText(r.t).width,ext=Math.max(14,r.s*0.45),x0=Math.max(2,W/2-tw/2-ext),x1=Math.min(W-2,W/2+tw/2+ext);g.lineWidth=2;
+        g.beginPath();g.moveTo(x0,cy-r.s*0.45);g.lineTo(x1,cy+r.s*0.45);g.stroke();g.beginPath();g.moveTo(x0,cy+r.s*0.45);g.lineTo(x1,cy-r.s*0.45);g.stroke();
+        g.save();g.strokeStyle='#fff';g.lineJoin='round';g.lineWidth=3;g.strokeText(r.t,W/2,cy);g.restore();}
+      g.fillText(r.t,W/2,cy);y+=h+sp;});
   }
-  rows.push({line:1});
-  rows.forEach(r=>{if(!r.line)r.s=fit(r.t,Math.round(r.s),r.b,r.min);});
-  const lw=Math.max(2,Math.round(H*0.007)),used=rows.reduce((a,r)=>a+(r.line?lw:r.s*1.15),0),gapN=rows.length+1,sp=Math.max(0,(H-2*m*0.6-used)/gapN);
-  let y=m*0.6+sp;
-  rows.forEach(r=>{
-    if(r.line){g.fillRect(m,Math.round(y),inner,lw);y+=lw+sp;return;}
-    const h=r.s*1.15,cy=y+h/2;g.font=`${r.b?'bold ':''}${r.s}px ${FF}`;
-    if(r.strike){const tw=g.measureText(r.t).width,ext=Math.max(14,r.s*0.45),x0=Math.max(2,W/2-tw/2-ext),x1=Math.min(W-2,W/2+tw/2+ext);g.lineWidth=3;
-      // wide cross drawn first, then the price on top with a white edge, so every number stays clear
-      g.beginPath();g.moveTo(x0,cy-r.s*0.5);g.lineTo(x1,cy+r.s*0.5);g.stroke();g.beginPath();g.moveTo(x0,cy+r.s*0.5);g.lineTo(x1,cy-r.s*0.5);g.stroke();
-      g.save();g.strokeStyle='#fff';g.lineJoin='round';g.lineWidth=Math.max(3,r.s*0.07);g.strokeText(r.t,W/2,cy);g.restore();}
-    g.fillText(r.t,W/2,cy);
-    y+=h+sp;});
-  // make it pure black & white (thermal printers have no grey)
+  // pure black & white (thermal printers have no grey)
   const im=g.getImageData(0,0,W,H),d=im.data;for(let i=0;i<d.length;i+=4){const v=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000<150?0:255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;}g.putImageData(im,0,0);
   return cv;
 }
@@ -430,12 +455,12 @@ async function quickPrint(){
   try{await btConnect(false);await btSend(tsplBytes(cv,c,1));showMsg('Label printed ✓','ok');}
   catch(e){labelSheet();pm((e&&e.message)||String(e),'bad');}
 }
-const SIZES=[[80,50],[80,60],[80,40],[70,50],[60,40],[50,30],[50,40],[50,50],[40,30]];
+const SIZES=[[40,79],[80,50],[80,60],[80,40],[70,50],[60,40],[50,30],[50,40],[40,30]];
 function labelSettings(back){
   const c=lcfg();const nm=ls('pc.btname');
   openSheet(`<h3>Label & printer settings</h3>
   <p><b>Print direction</b></p>
-  <div class="orient"><button class="orb${c.orient!=='port'?' on':''}" data-or="land"><i class="ol"></i>Landscape<small>text across the label</small></button><button class="orb${c.orient==='port'?' on':''}" data-or="port"><i class="op"></i>Portrait<small>text turned, along the label</small></button></div>
+  <div class="orient"><button class="orb${c.orient!=='port'?' on':''}" data-or="land"><i class="ol"></i>Landscape<small>wide label</small></button><button class="orb${c.orient==='port'?' on':''}" data-or="port"><i class="op"></i>Portrait<small>tall label, like the shelf tags</small></button></div>
   <p><b>Label size in cm</b> (measure one label: width = across the printer, length = the way it comes out)</p>
   <div class="sizes">${SIZES.map(([w,h])=>`<button class="szb${c.w==w&&c.h==h?' on':''}" data-sz="${w}x${h}">${cm(w)} × ${cm(h)}</button>`).join('')}</div>
   <div class="grid2"><label>Width cm<input type="number" id="sW" min="2" max="8" step="0.1" value="${cm(c.w)}"></label><label>Length cm<input type="number" id="sH" min="1" max="20" step="0.1" value="${cm(c.h)}"></label>
