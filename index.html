@@ -295,7 +295,7 @@ function show(ids){
 let CUR=null;            // item on screen, ready to print
 // store format: 4 cm wide x 7.9 cm long, portrait (tall), like the shelf price tags
 // the shelf-tag roll is loaded sideways: 7.9 cm across the printer, each tag comes out 4 cm long, printed turned
-const LDEF={w:79,h:40,gap:2,density:13,flip:false,dx:0,dy:0,cur:'QR',name:true,quick:false,orient:'port',fmtv:3};
+const LDEF={w:79,h:40,gap:2,density:13,flip:false,dx:0,dy:0,cur:'QR',name:true,quick:false,orient:'port',fmtv:3,mid:33.5,bot:62,wasp:110,nowp:100,codep:100};
 function lcfg(){let c={};try{c=JSON.parse(ls('pc.label')||'{}')||{};}catch(e){}
   if((c.fmtv||0)<3){c.w=79;c.h=40;c.orient='port';c.density=Math.max(+c.density||0,13);c.dx=0;c.dy=0;c.fmtv=3;}   // one-time switch of every device to the shelf-tag roll
   return Object.assign({},LDEF,c);}
@@ -325,34 +325,38 @@ function designLabel(it,c,W,H){
     const fit=(t,px,bold,ff,min)=>{let s=px;do{font(s,bold,ff);if(g.measureText(t).width<=inner)break;s-=1;}while(s>min);return s;};
     const text=(t,y,px,bold,ff,min)=>{const s=fit(t,px,bold,ff,min||px*0.6);font(s,bold,ff);g.fillText(t,W/2,y);return s;};
     const line=y=>{g.fillRect(Math.round(W*0.06),Math.round(y),Math.round(W*0.88),Math.max(2,Math.round(H*0.003)));};
-    // code and name: larger, regular weight with an even outline so they print crisp at 203 dpi
+    // positions in mm on a 7.9 cm tag (scaled for other lengths); middle/bottom line and sizes can be fine-tuned in ⚙
+    const sc=H/(79*DPMM),mm=v=>v*DPMM*sc;
+    const midMm=+c.mid||33.5,botMm=Math.max(+c.bot||62,midMm+15),wasP=(+c.wasp||110)/100,nowP=(+c.nowp||100)/100,codeP=(+c.codep||100)/100;
+    // code and name: regular weight with an even outline so they print crisp at 203 dpi
     const crisp=(t,y,px,min)=>{const sz=fit(t,px,false,MONO,min||px*0.65);font(sz,false,MONO);g.lineWidth=1;g.lineJoin='round';g.strokeText(t,W/2,y);g.fillText(t,W/2,y);};
-    let y=H*0.085;
-    crisp(it.code,y,H*0.050);
-    if(c.name&&it.name){y=H*0.148;
+    let y=mm(6.7);
+    crisp(it.code,y,H*0.050*codeP);
+    if(c.name&&it.name){y=mm(11.7);
       // long names go on two lines
-      font(H*0.040,false,MONO);let parts=[it.name];
+      font(H*0.040*codeP,false,MONO);let parts=[it.name];
       if(g.measureText(it.name).width>inner){const w=it.name.split(/\s+/);let bd=1e9;for(let k=1;k<w.length;k++){const a=w.slice(0,k).join(' '),b=w.slice(k).join(' '),d=Math.max(g.measureText(a).width,g.measureText(b).width);if(d<bd){bd=d;parts=[a,b];}}}
-      parts.forEach((t,i)=>{crisp(t,y,H*0.040,H*0.026);if(i<parts.length-1)y+=H*0.048;});}
-    const off=y-H*0.148;   // extra room used by a two-line name
-    line(H*0.182+off);
+      parts.forEach((t,i)=>{crisp(t,y,H*0.040*codeP,H*0.026);if(i<parts.length-1)y+=H*0.048*codeP;});}
+    const off=y-mm(11.7);   // extra room used by a two-line name
+    const l1=mm(14.4)+off,lm=mm(midMm)+off,lb=Math.min(H-4,mm(botMm)+off);
+    line(l1);
     if(disc){
-      text('WAS',H*0.226+off,H*0.031,true,SANS);
-      const wy=H*0.300+off,ws=fit(P(it.was),H*0.068,false,SANS,H*0.04);font(ws,false,SANS);
+      // WAS panel: word at the top, old price centred in the rest of the panel
+      const wW=l1+mm(3.6);text('WAS',wW,H*0.031,true,SANS);
+      const wy=(wW+mm(2.4)+lm)/2,ws=fit(P(it.was),H*0.068*wasP,false,SANS,H*0.04);font(ws,false,SANS);
       const tw=g.measureText(P(it.was)).width,x0=W/2-tw/2-W*0.03,x1=W/2+tw/2+W*0.03;
       g.fillText(P(it.was),W/2,wy);
       // two clean crossing lines over the old price, like the shelf tags
       g.lineWidth=2;g.beginPath();g.moveTo(x0,wy-ws*0.42);g.lineTo(x1,wy+ws*0.42);g.stroke();g.beginPath();g.moveTo(x0,wy+ws*0.42);g.lineTo(x1,wy-ws*0.42);g.stroke();
-      // middle line and the NOW part sit 5 mm lower, for a bigger gap under the old price
-      const dn=5*DPMM*(H/(79*DPMM));
-      line(H*0.392+off+dn);
-      text('NOW',H*0.475+off+dn,H*0.031,true,SANS);
-      text(P(it.now),H*0.578+off+dn,H*0.084,true,SANS,H*0.05);
-      line(H*0.695+off+dn);
+      line(lm);
+      // NOW panel: word near the top, new price centred below it
+      const nW=lm+mm(8.5);text('NOW',nW,H*0.031,true,SANS);
+      text(P(it.now),(nW+mm(3)+lb)/2,H*0.084*nowP,true,SANS,H*0.05);
+      line(lb);
     }else{
-      text('PRICE',H*0.232+off,H*0.031,true,SANS);
-      text(P(it.now!=null?it.now:it.was),H*0.325+off,H*0.084,true,SANS,H*0.05);
-      line(H*0.430+off);
+      const pW=l1+mm(4);text('PRICE',pW,H*0.031,true,SANS);
+      text(P(it.now!=null?it.now:it.was),(pW+mm(3)+lm)/2,H*0.084*nowP,true,SANS,H*0.05);
+      line(lm);
     }
   }else{
     // ---- wide label ----
@@ -473,6 +477,14 @@ function labelSettings(back){
   <label>Move right mm<input type="number" id="sX" step="0.5" value="${c.dx}"></label><label>Move down mm<input type="number" id="sY" step="0.5" value="${c.dy}"></label>
   <label>Currency<input type="text" id="sC" value="${esc(c.cur)}"></label>
   <label>Printer name for this PDT<input type="text" id="sPN" maxlength="20" placeholder="e.g. Printer 1" value="${esc(ls('pc.btnick')||'')}"></label></div>
+  <p style="margin-top:14px"><b>Shelf-tag layout</b> – move the lines and resize the prices to match your tags (portrait tags).</p>
+  <div class="grid2"><label>Middle line, cm from top<input type="number" id="tMid" step="0.1" min="2" max="6" value="${(c.mid/10).toFixed(2)}"></label>
+  <label>Bottom line, cm from top<input type="number" id="tBot" step="0.1" min="4" max="7.8" value="${(c.bot/10).toFixed(2)}"></label>
+  <label>Old price size %<input type="number" id="tWas" step="5" min="60" max="160" value="${c.wasp}"></label>
+  <label>New price size %<input type="number" id="tNow" step="5" min="60" max="140" value="${c.nowp}"></label>
+  <label>Code & name size %<input type="number" id="tCode" step="5" min="60" max="160" value="${c.codep}"></label>
+  <label>&nbsp;<button class="btn light" id="tReset" style="margin-top:3px;padding:9px">Reset layout</button></label></div>
+  <div class="lprev"><img id="tPrev" alt="Preview"><small>Preview (changes as you type)</small></div>
   <label class="chk"><input type="checkbox" id="sN" ${c.name?'checked':''}> Show product name</label>
   <label class="chk"><input type="checkbox" id="sF" ${c.flip?'checked':''}> Turn print upside down</label>
   <label class="chk"><input type="checkbox" id="sQ" ${c.quick?'checked':''}> Print button prints straight away (no preview)</label>
@@ -484,7 +496,12 @@ function labelSettings(back){
   $('panel').querySelectorAll('[data-or]').forEach(b=>b.onclick=()=>{OR=b.dataset.or;$('panel').querySelectorAll('.orb').forEach(x=>x.classList.toggle('on',x===b));});
   $('panel').querySelectorAll('[data-sz]').forEach(b=>b.onclick=()=>{const [w,h]=b.dataset.sz.split('x');$('sW').value=cm(w);$('sH').value=cm(h);$('panel').querySelectorAll('.szb').forEach(x=>x.classList.toggle('on',x===b));});
   const read=()=>{const n=(id,d,lo,hi)=>{const v=Number($(id).value);return isFinite(v)&&$(id).value!==''?Math.min(hi,Math.max(lo,v)):d;};
-    return {orient:OR,w:Math.round(n('sW',8,2,8)*10),h:Math.round(n('sH',5,1,20)*10),gap:n('sG',2,0,10),density:Math.round(n('sD',8,1,15)),dx:n('sX',0,-20,20),dy:n('sY',0,-20,20),cur:($('sC').value||'QR').slice(0,6),name:$('sN').checked,flip:$('sF').checked,quick:$('sQ').checked};};
+    return {mid:Math.round(n('tMid',3.35,2,6)*100)/10,bot:Math.round(n('tBot',6.2,4,7.8)*100)/10,wasp:Math.round(n('tWas',110,60,160)),nowp:Math.round(n('tNow',100,60,140)),codep:Math.round(n('tCode',100,60,160)),orient:OR,w:Math.round(n('sW',8,2,8)*10),h:Math.round(n('sH',5,1,20)*10),gap:n('sG',2,0,10),density:Math.round(n('sD',8,1,15)),dx:n('sX',0,-20,20),dy:n('sY',0,-20,20),cur:($('sC').value||'QR').slice(0,6),name:$('sN').checked,flip:$('sF').checked,quick:$('sQ').checked};};
+  const sample=()=>CUR||{code:'KB2108',name:'LINEAR CAP',was:69,now:54};
+  const prev=()=>{try{const cv=drawLabel(sample(),Object.assign({},c,read()));$('tPrev').src=(cv.view||cv).toDataURL('image/png');}catch(e){}};
+  $('panel').querySelectorAll('input').forEach(i=>i.addEventListener('input',prev));$('panel').querySelectorAll('[data-or],[data-sz]').forEach(b=>b.addEventListener('click',()=>setTimeout(prev,0)));
+  $('tReset').onclick=()=>{$('tMid').value='3.35';$('tBot').value='6.20';$('tWas').value=110;$('tNow').value=100;$('tCode').value=100;prev();};
+  prev();
   const nick=()=>{const v=($('sPN').value||'').trim();ls('pc.btnick',v||null);pstat();return v;};
   $('sSave').onclick=()=>{nick();lsave(read());pm('Saved.','ok');setTimeout(()=>{if(back&&CUR)labelSheet();else closeSheet();},400);};
   if($('sBt'))$('sBt').onclick=async()=>{try{pm('Choose your HOIN printer in the list…','');await btConnect(true);pm('Connected to '+(BT.dev.name||'printer')+' ✓  Now type a printer name (e.g. Printer 1), tap Print test label, and stick the same name on the printer.','ok');}catch(e){pm(e&&e.name==='NotFoundError'?'No printer chosen.':(e.message||String(e)),'bad');}};
