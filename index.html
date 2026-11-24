@@ -123,7 +123,7 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:12px 12px 30p
     <div class="row scan">
       <label for="q">For Scanning ( ITEM BARCODE / Search name )</label>
       <form class="inbox" id="f" autocomplete="off">
-        <input id="q" type="text" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="Scan · tap here to type" readonly enterkeyhint="search">
+        <input id="q" type="text" inputmode="none" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Scan · tap here to type" enterkeyhint="search">
         <button class="kb" type="button" id="kb" aria-pressed="false" title="Type with the keyboard">⌨</button>
         <button class="sbtn" type="submit">Go</button>
       </form>
@@ -502,21 +502,27 @@ pstat();
 
 /* ---------- input handling ---------- */
 function focusQ(){const q=$('q');try{q.focus({preventScroll:true});}catch(e){q.focus();}}
-/* Scan mode (default): the box is read-only, so the phone/PDT keyboard never opens.
-   The scanner's keystrokes are caught by the page and written into the box.
+/* Scan mode (default): the box keeps the cursor but with no on-screen keyboard (inputmode none),
+   so scans arrive whether the scanner types keys or fills the text box directly.
    Type mode: tap the box or ⌨ to type a search name; after the search it goes back to scan mode. */
 let SCAN=true,fresh=true,tmr=null;
-function scanMode(){SCAN=true;const q=$('q');q.readOnly=true;q.setAttribute('inputmode','none');$('kb').setAttribute('aria-pressed','false');
-  if(document.activeElement&&document.activeElement!==document.body)document.activeElement.blur();fresh=true;}
-function typeMode(){SCAN=false;const q=$('q');q.readOnly=false;q.setAttribute('inputmode','text');$('kb').setAttribute('aria-pressed','true');
-  q.blur();focusQ();try{q.select();}catch(e){}}
+function scanFocus(){const q=$('q');if(!SCAN||$('sheet').classList.contains('on')||document.hidden)return;
+  if(document.activeElement!==q){q.setAttribute('inputmode','none');focusQ();}
+  if(fresh){try{q.select();}catch(e){}}}
+function scanMode(){SCAN=true;const q=$('q');q.readOnly=false;$('kb').setAttribute('aria-pressed','false');
+  if(q.getAttribute('inputmode')!=='none'){q.blur();q.setAttribute('inputmode','none');}
+  fresh=true;setTimeout(scanFocus,0);}
+function typeMode(){SCAN=false;const q=$('q');q.readOnly=false;clearTimeout(tmr);q.value='';q.classList.remove('bad');q.setAttribute('inputmode','text');$('kb').setAttribute('aria-pressed','true');
+  q.blur();focusQ();}
 function selQ(){scanMode();}   // after every search: keyboard closes, next scan replaces the old one
-function autoLook(){clearTimeout(tmr);const v=$('q').value.trim();
-  // scanners that do not send Enter: look up automatically when a full barcode arrives
-  if(L&&/^\d{6,}$/.test(v))tmr=setTimeout(()=>{if(L.byBc.has(norm(v))&&$('q').value.trim()===v)lookup(v);},350);}
+function autoLook(){clearTimeout(tmr);const v=$('q').value.trim();if(!L||!v)return;
+  // scanners that do not send Enter: look up by themselves when a full code has arrived and the scanner pauses
+  if(/^\d{6,}$/.test(v))tmr=setTimeout(()=>{if(L.byBc.has(norm(v))&&$('q').value.trim()===v)lookup(v);},350);
+  else if(SCAN)tmr=setTimeout(()=>{if($('q').value.trim()===v&&findIds(v))lookup(v);},600);}
 $('f').onsubmit=e=>{e.preventDefault();clearTimeout(tmr);lookup($('q').value);};
-$('q').addEventListener('input',()=>{$('q').classList.remove('bad');autoLook();});
+$('q').addEventListener('input',()=>{$('q').classList.remove('bad');fresh=false;autoLook();});
 $('q').addEventListener('click',()=>{if(SCAN)typeMode();});
+$('q').addEventListener('keydown',e=>{if(!SCAN&&e.key==='Enter'){e.preventDefault();clearTimeout(tmr);lookup($('q').value);}});
 $('kb').onclick=()=>{SCAN?typeMode():scanMode();};
 document.addEventListener('keydown',e=>{
   if(!SCAN||$('sheet').classList.contains('on')||e.ctrlKey||e.altKey||e.metaKey)return;
@@ -525,7 +531,10 @@ document.addEventListener('keydown',e=>{
   if(k==='Backspace'){e.preventDefault();q.value=q.value.slice(0,-1);fresh=false;return;}
   if(k&&k.length===1){e.preventDefault();if(fresh){q.value='';fresh=false;$('q').classList.remove('bad');}q.value+=k;autoLook();}
 });
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){sync();fresh=true;setTimeout(scanFocus,150);}});
+// coming back from another app: get the scan box ready again
+addEventListener('focus',()=>setTimeout(scanFocus,100));addEventListener('pageshow',()=>setTimeout(scanFocus,100));
+setInterval(scanFocus,2000);
 setInterval(()=>{if(!document.hidden)sync();},3*60*1000);
 
 /* ---------- Excel reading (xlsx / xlsb / csv) ---------- */
