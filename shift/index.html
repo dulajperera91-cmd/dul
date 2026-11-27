@@ -324,7 +324,8 @@ function hoursOf(v){
   if(!WORKING.includes(k)) return 0;
   const m=s.match(/^(.+?)\s+to\s+(\S+)/i); if(!m) return null;
   const a=clockOf(m[1]), b=clockOf(m[2]); if(!a||!b) return null;
-  const d=b.h-a.h; return d>0&&d<=16?d:null;
+  let d=b.h-a.h; if(d<=0)d+=12; if(d<=0)d+=12;   // shifts that end at or after midnight
+  return d>0&&d<=16?d:null;
 }
 function fmtClock(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);const ap=hh>=12?'p':'a';let x=hh%12||12;return x+(mm?':'+String(mm).padStart(2,'0'):'')+ap;}
 function shortOf(v){const r=shortBase(v);if(isOT(v))r.sub=(r.sub?r.sub+' · ':'')+'OT';return r;}
@@ -755,28 +756,29 @@ function weekSheetXml(id,w){
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((v,i)=>`<col min="${i+1}" max="${i+1}" width="${v}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData><mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells><pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
 }
 function otSheetXml(id,w){
+  // OT grid, like the store's OT sheet: SR, EMP#, Name, OT hours Sun–Sat, Total Hours (yellow), grand total at the bottom
   const x=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'');
   const L=i=>String.fromCharCode(65+i),rows=[],merges=[],N=otNorm();const put=(r,c,v,st)=>{(rows[r]=rows[r]||[])[c]={v,st};};
-  put(1,0,'Overtime (LD shifts) · '+(w.label?w.label+' · ':'')+rangeLabel(id),1);merges.push('A1:I1');
-  put(2,0,`OT hours = shift hours − normal hours (normal: ${N.d} h for a straight shift, ${N.s} h for a split shift)`,2);merges.push('A2:I2');
-  ['Day','Date','EMP#','Name','Section','Shift','Shift hours','Normal hours','OT hours'].forEach((h,i)=>put(4,i,h,3));
-  let r=5;const per=new Map();let wk=0;
-  for(let d=0;d<7;d++){const iso=addDays(id,d),date=`${+iso.slice(8,10)} ${MON[+iso.slice(5,7)-1]} ${iso.slice(0,4)}`;let n=0,tot=0;
-    w.sections.forEach(sec=>sec.staff.forEach(p=>{const v=(p.shifts[d]||'').trim();if(!isOT(v))return;
-      const h=hoursOf(v),o=otOf(v,N),nm=kindOf(v)==='split'?N.s:N.d;n++;if(o)tot+=o;
-      put(r,0,DAYS[d],5);put(r,1,date,5);put(r,2,/^\d+$/.test(String(p.emp||'').trim())?+p.emp:(p.emp||''),10);put(r,3,p.name||'',4);put(r,4,sec.name||'',4);
-      put(r,5,v,5);put(r,6,h==null?'?':Math.round(h*100)/100,10);put(r,7,nm,10);put(r,8,o==null?'?':o,6);r++;
-      const k=(p.emp||'')+'|'+(p.name||'');const e=per.get(k)||{emp:p.emp,name:p.name,sec:sec.name,days:0,hrs:0};e.days++;e.hrs+=o||0;per.set(k,e);}));
-    if(!n){put(r,0,DAYS[d],5);put(r,1,date,5);put(r,2,'',4);put(r,3,'No overtime',4);for(let c=4;c<9;c++)put(r,c,'',4);r++;}
-    else{put(r,0,'',11);put(r,1,'',11);put(r,2,'',11);put(r,3,`Total ${DAYS[d]}: ${n} staff on OT`,11);for(let c=4;c<8;c++)put(r,c,'',11);put(r,8,Math.round(tot*100)/100,11);r++;}
-    wk+=tot;}
-  r++;put(r,2,'EMP#',3);put(r,3,'Name',3);put(r,4,'Section',3);put(r,5,'OT days',3);put(r,6,'OT hours',3);r++;
-  [...per.values()].sort((a,b)=>b.hrs-a.hrs).forEach(e=>{put(r,2,/^\d+$/.test(String(e.emp||'').trim())?+e.emp:(e.emp||''),10);put(r,3,e.name||'',4);put(r,4,e.sec||'',4);put(r,5,e.days,10);put(r,6,Math.round(e.hrs*100)/100,10);r++;});
-  put(r,2,'',11);put(r,3,'Week total',11);put(r,4,'',11);put(r,5,[...per.values()].reduce((a,e)=>a+e.days,0),11);put(r,6,Math.round(wk*100)/100,11);
+  const r2=v=>Math.round(v*100)/100;
+  ['SR','EMP#','Name',...DAYS,'Total Hours'].forEach((h,i)=>put(1,i,h,3));
+  let r=2,sr=0,grand=0;const dayTot=Array(7).fill(0);
+  w.sections.forEach(sec=>{
+    put(r,0,'',9);put(r,1,sec.name||'',9);for(let c=2;c<11;c++)put(r,c,'',9);merges.push(`B${r}:K${r}`);r++;
+    sec.staff.forEach(p=>{sr++;let tot=0,any=false;
+      put(r,0,sr,10);put(r,1,/^\d+$/.test(String(p.emp||'').trim())?+p.emp:(p.emp||''),10);put(r,2,p.name||'',4);
+      for(let d=0;d<7;d++){const v=(p.shifts[d]||'').trim();
+        if(isOT(v)){const o=otOf(v,N);any=true;if(o==null)put(r,3+d,'?',10);else{put(r,3+d,r2(o),10);tot+=o;dayTot[d]+=o;}}
+        else put(r,3+d,'',10);}
+      put(r,10,any?r2(tot):'',6);grand+=tot;r++;});
+  });
+  // bottom row: total OT for each day and the week
+  put(r,0,'',11);put(r,1,'',11);put(r,2,'Total',11);dayTot.forEach((v,i)=>put(r,3+i,v?r2(v):'',11));put(r,10,r2(grand),11);r++;
+  r++;put(r,2,(w.label?w.label+' · ':'')+rangeLabel(id),2);r++;
+  put(r,2,`OT = LD shift hours − normal hours (${N.d} h straight, ${N.s} h split)`,2);
   const cell=(v,ri,ci,s)=>{const ref=L(ci)+ri;if(v===''||v==null)return `<c r="${ref}" s="${s||0}"/>`;if(typeof v==='number')return `<c r="${ref}" s="${s||0}"><v>${v}</v></c>`;return `<c r="${ref}" t="inlineStr" s="${s||0}"><is><t xml:space="preserve">${x(v)}</t></is></c>`;};
-  let sd='';rows.forEach((row,ri)=>{if(!row)return;sd+=`<row r="${ri}"${ri===1?' ht="24" customHeight="1"':''}>${row.map((c,ci)=>c?cell(c.v,ri,ci,c.st):'').join('')}</row>`;});
-  const widths=[7,14,9,26,16,26,11,12,10];
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((v,i)=>`<col min="${i+1}" max="${i+1}" width="${v}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData><mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells><pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+  let sd='';rows.forEach((row,ri)=>{if(!row)return;sd+=`<row r="${ri}">${row.map((c,ci)=>c?cell(c.v,ri,ci,c.st):'').join('')}</row>`;});
+  const widths=[5,9,26,18,18,18,18,18,18,18,13];
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((v,i)=>`<col min="${i+1}" max="${i+1}" width="${v}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData><mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells><pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
 }
 function weekXlsx(ids){
   const x=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -802,7 +804,7 @@ function saveFile(bytes,name){const url=URL.createObjectURL(new Blob([bytes],{ty
 function excelSheet(){
   const w=curWeek();if(!w)return;const ids=sortedIds();
   const N=otNorm();
-  openSheet(`<h2>Download Excel</h2><p class="sub">Same layout as the schedule sheet: staff by section, Sun–Sat shifts, hours, OT hours and the shift count for each day – plus an <b>OT sheet</b> with every LD (overtime) shift, day by day.</p>
+  openSheet(`<h2>Download Excel</h2><p class="sub">Same layout as the schedule sheet: staff by section, Sun–Sat shifts, hours, OT hours and the shift count for each day – plus an <b>OT sheet</b>: each person’s overtime hours for every day and their total.</p>
     <div class="row" style="gap:10px;flex-wrap:wrap;margin:6px 0 10px"><label class="sub" style="margin:0">Normal shift hours <input id="otD" type="number" step="0.5" min="1" max="16" value="${N.d}" style="width:70px"></label><label class="sub" style="margin:0">Normal split hours <input id="otS" type="number" step="0.5" min="1" max="16" value="${N.s}" style="width:70px"></label></div>
     <div class="menu"><button id="xThis"><b>This week</b><span>${esc(w.label||'')} · ${rangeLabel(S.cur)}</span></button>
     ${ids.length>1?`<button id="xAll"><b>All weeks</b><span>${ids.length} weeks, schedule + OT sheet for each</span></button>`:''}</div><p class="sub" id="xMsg"></p>`,
